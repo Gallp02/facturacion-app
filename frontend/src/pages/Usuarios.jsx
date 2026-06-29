@@ -1,0 +1,207 @@
+import { useState, useEffect, useCallback } from 'react';
+import { usuariosAPI } from '../services/api';
+import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
+import SearchBar from '../components/SearchBar';
+import Pagination from '../components/Pagination';
+import Modal from '../components/Modal';
+import { TableSkeleton } from '../components/Skeleton';
+import { exportToCSV } from '../utils/export';
+
+export default function Usuarios() {
+  const { addToast } = useToast();
+  const { usuario } = useAuth();
+  const isSuperAdmin = usuario?.rol === 'super_admin';
+  const [usuarios, setUsuarios] = useState([]);
+  const [roles, setRoles] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [confirmDelete, setConfirmDelete] = useState(null);
+  const [saving, setSaving] = useState(false);
+  const [form, setForm] = useState({ nombre: '', email: '', password: '', telefono: '', rol_id: '' });
+
+  const loadData = useCallback(async (p, s) => {
+    setLoading(true);
+    try {
+      const [uRes, rRes] = await Promise.all([
+        usuariosAPI.getAll({ page: p, limit: 20, search: s }),
+        usuariosAPI.getRoles()
+      ]);
+      setUsuarios(uRes.data.data);
+      setTotal(uRes.data.total);
+      setRoles(rRes.data);
+    } catch (err) {
+      addToast('Error al cargar usuarios', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadData(page, search); }, [page]);
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(1); loadData(1, search); }, 400);
+    return () => clearTimeout(timer);
+  }, [search]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.nombre || !form.email || (!editing && !form.password) || !form.rol_id) {
+      addToast('Complete todos los campos requeridos', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      if (editing) {
+        await usuariosAPI.update(editing, { ...form, password: form.password || undefined });
+        addToast('Usuario actualizado', 'success');
+      } else {
+        await usuariosAPI.create(form);
+        addToast('Usuario creado', 'success');
+      }
+      setShowForm(false);
+      setEditing(null);
+      setForm({ nombre: '', email: '', password: '', telefono: '', rol_id: '' });
+      loadData(page, search);
+    } catch (err) {
+      addToast(err.response?.data?.error || 'Error al guardar', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const openEdit = (u) => {
+    setForm({ nombre: u.nombre, email: u.email, password: '', telefono: u.telefono || '', rol_id: u.rol_id });
+    setEditing(u.id);
+    setShowForm(true);
+  };
+
+  const handleDelete = async () => {
+    if (!confirmDelete) return;
+    setSaving(true);
+    try {
+      await usuariosAPI.delete(confirmDelete.id);
+      addToast('Usuario desactivado', 'success');
+      setConfirmDelete(null);
+      loadData(page, search);
+    } catch (err) {
+      addToast(err.response?.data?.error || 'Error al desactivar', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const resetForm = () => {
+    setShowForm(false);
+    setEditing(null);
+    setForm({ nombre: '', email: '', password: '', telefono: '', rol_id: '' });
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+        <h1 style={{ margin: 0, color: 'var(--text-primary, #1a202c)' }}>Usuarios</h1>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <SearchBar value={search} onChange={setSearch} placeholder="Buscar usuario..." />
+          <button onClick={() => exportToCSV(usuarios, 'usuarios')} title="Exportar CSV"
+            style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
+            ⬇ CSV
+          </button>
+          {isSuperAdmin && (
+            <button onClick={resetForm} style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              {showForm ? 'Cancelar' : '+ Nuevo Usuario'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {showForm && isSuperAdmin && (
+        <form onSubmit={handleSubmit} style={{ background: 'var(--card-bg, white)', padding: 20, borderRadius: 12, marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+            <input placeholder="Nombre *" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required
+              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            <input placeholder="Email *" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required
+              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            <input placeholder={editing ? 'Nuevo password (opcional)' : 'Password *'} type="password" value={form.password}
+              onChange={(e) => setForm({ ...form, password: e.target.value })} required={!editing}
+              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            <input placeholder="Telefono" value={form.telefono} onChange={(e) => setForm({ ...form, telefono: e.target.value })}
+              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            <select value={form.rol_id} onChange={(e) => setForm({ ...form, rol_id: e.target.value })} required
+              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
+              <option value="">Seleccionar rol</option>
+              {roles.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
+            </select>
+          </div>
+          <button type="submit" disabled={saving} style={{ marginTop: 12, padding: '10px 24px', background: saving ? '#a0aec0' : '#38a169', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+            {saving ? 'Guardando...' : editing ? 'Actualizar Usuario' : 'Crear Usuario'}
+          </button>
+        </form>
+      )}
+
+      {loading ? <TableSkeleton rows={6} cols={5} /> : (
+        <div style={{ background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 600 }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-secondary, #f7fafc)', textAlign: 'left' }}>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Nombre</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Email</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Rol</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Activo</th>
+                  {isSuperAdmin && <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Accion</th>}
+                </tr>
+              </thead>
+              <tbody>
+                {usuarios.map((u) => (
+                  <tr key={u.id} style={{ borderBottom: '1px solid var(--border, #e2e8f0)' }}>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{u.nombre}</td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{u.email}</td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{u.rol}</td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <span style={{ color: u.activo ? '#38a169' : '#e53e3e', fontWeight: 600 }}>
+                        {u.activo ? 'Si' : 'No'}
+                      </span>
+                    </td>
+                    {isSuperAdmin && (
+                      <td style={{ padding: '10px 16px' }}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button onClick={() => openEdit(u)} style={{ padding: '6px 12px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                            Editar
+                          </button>
+                          {u.id !== usuario?.id && (
+                            <button onClick={() => setConfirmDelete({ id: u.id, nombre: u.nombre })} style={{ padding: '6px 12px', background: '#fed7d7', color: '#9b2c2c', border: '1px solid #feb2b2', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                              Desactivar
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+                {usuarios.length === 0 && !loading && (
+                  <tr><td colSpan={isSuperAdmin ? 5 : 4} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #a0aec0)' }}>No hay usuarios registrados</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Pagination page={page} limit={20} total={total} onChange={setPage} />
+        </div>
+      )}
+
+      <Modal
+        open={!!confirmDelete}
+        onClose={() => setConfirmDelete(null)}
+        title="Desactivar Usuario"
+        onConfirm={handleDelete}
+        confirmText="Desactivar"
+        loading={saving}
+      >
+        {confirmDelete && <p>¿Estas seguro de desactivar a <strong>{confirmDelete.nombre}</strong>?</p>}
+      </Modal>
+    </div>
+  );
+}

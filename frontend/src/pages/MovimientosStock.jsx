@@ -1,0 +1,187 @@
+import { useState, useEffect, useCallback } from 'react';
+import { movimientosStockAPI, productosAPI } from '../services/api';
+import { useToast } from '../context/ToastContext';
+import { useAuth } from '../context/AuthContext';
+import SearchBar from '../components/SearchBar';
+import Pagination from '../components/Pagination';
+import Modal from '../components/Modal';
+import { TableSkeleton } from '../components/Skeleton';
+import { exportToCSV } from '../utils/export';
+
+export default function MovimientosStock() {
+  const { addToast } = useToast();
+  const { usuario } = useAuth();
+  const canManage = ['super_admin', 'admin', 'almacen'].includes(usuario?.rol);
+
+  const [movimientos, setMovimientos] = useState([]);
+  const [productos, setProductos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [page, setPage] = useState(1);
+  const [total, setTotal] = useState(0);
+  const [search, setSearch] = useState('');
+  const [tipoFilter, setTipoFilter] = useState('');
+  const [showForm, setShowForm] = useState(false);
+  const [saving, setSaving] = useState(false);
+
+  const [form, setForm] = useState({ producto_id: '', tipo: 'entrada', cantidad: 1, referencia: '' });
+
+  const loadData = useCallback(async (p, s, t) => {
+    setLoading(true);
+    try {
+      const params = { page: p, limit: 20, search: s };
+      if (t) params.tipo = t;
+      const [mRes, pRes] = await Promise.all([
+        movimientosStockAPI.getAll(params),
+        productosAPI.getAll({ limit: 200 })
+      ]);
+      setMovimientos(mRes.data.data);
+      setTotal(mRes.data.total);
+      setProductos(pRes.data.data || pRes.data);
+    } catch (err) {
+      addToast('Error al cargar movimientos', 'error');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => { loadData(page, search, tipoFilter); }, [page]);
+  useEffect(() => {
+    const timer = setTimeout(() => { setPage(1); loadData(1, search, tipoFilter); }, 400);
+    return () => clearTimeout(timer);
+  }, [search, tipoFilter]);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    if (!form.producto_id || !form.tipo || !form.cantidad) {
+      addToast('Complete todos los campos requeridos', 'error');
+      return;
+    }
+    setSaving(true);
+    try {
+      await movimientosStockAPI.create(form);
+      addToast('Movimiento registrado correctamente', 'success');
+      setShowForm(false);
+      setForm({ producto_id: '', tipo: 'entrada', cantidad: 1, referencia: '' });
+      loadData(page, search, tipoFilter);
+    } catch (err) {
+      addToast(err.response?.data?.error || 'Error al registrar movimiento', 'error');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  const tipoStyle = (tipo) => {
+    switch (tipo) {
+      case 'entrada': return { bg: '#c6f6d5', color: '#276749' };
+      case 'salida': return { bg: '#fed7d7', color: '#9b2c2c' };
+      case 'ajuste': return { bg: '#fefcbf', color: '#975a16' };
+      default: return { bg: '#e2e8f0', color: '#4a5568' };
+    }
+  };
+
+  return (
+    <div>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+        <h1 style={{ margin: 0, color: 'var(--text-primary, #1a202c)' }}>Movimientos de Stock</h1>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+          <SearchBar value={search} onChange={setSearch} placeholder="Buscar producto o usuario..." />
+          <select value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)}
+            style={{ padding: '8px 12px', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
+            <option value="">Todos</option>
+            <option value="entrada">Entradas</option>
+            <option value="salida">Salidas</option>
+            <option value="ajuste">Ajustes</option>
+          </select>
+          <button onClick={() => exportToCSV(movimientos, 'movimientos-stock')} title="Exportar CSV"
+            style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
+            ⬇ CSV
+          </button>
+          {canManage && (
+            <button onClick={() => setShowForm(!showForm)}
+              style={{ padding: '10px 20px', background: showForm ? '#e53e3e' : '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              {showForm ? 'Cancelar' : '+ Nuevo Movimiento'}
+            </button>
+          )}
+        </div>
+      </div>
+
+      {showForm && (
+        <form onSubmit={handleSubmit} style={{ background: 'var(--card-bg, white)', padding: 20, borderRadius: 12, marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
+            <select value={form.producto_id} onChange={(e) => setForm({ ...form, producto_id: e.target.value })} required
+              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
+              <option value="">Seleccionar producto *</option>
+              {productos.map(p => <option key={p.id} value={p.id}>{p.nombre} (Stock: {p.stock})</option>)}
+            </select>
+            <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}
+              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
+              <option value="entrada">Entrada (+)</option>
+              <option value="salida">Salida (-)</option>
+              <option value="ajuste">Ajuste (+/-)</option>
+            </select>
+            <input type="number" min="1" value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: parseInt(e.target.value) || 1 })} required
+              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            <input placeholder="Referencia (opcional)" value={form.referencia} onChange={(e) => setForm({ ...form, referencia: e.target.value })}
+              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+          </div>
+          <div style={{ marginTop: 12, fontSize: 13, color: 'var(--text-secondary, #718096)' }}>
+            {form.tipo === 'entrada' && 'Aumenta el stock del producto'}
+            {form.tipo === 'salida' && 'Reduce el stock del producto (requiere stock suficiente)'}
+            {form.tipo === 'ajuste' && 'Valor positivo = entrada, valor negativo = salida'}
+          </div>
+          <button type="submit" disabled={saving} style={{ marginTop: 12, padding: '10px 24px', background: saving ? '#a0aec0' : '#38a169', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
+            {saving ? 'Registrando...' : 'Registrar Movimiento'}
+          </button>
+        </form>
+      )}
+
+      {loading ? <TableSkeleton rows={6} cols={7} /> : (
+        <div style={{ background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 800 }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-secondary, #f7fafc)', textAlign: 'left' }}>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Tipo</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Producto</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Cantidad</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Stock Anterior</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Stock Nuevo</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Referencia</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Usuario</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Fecha</th>
+                </tr>
+              </thead>
+              <tbody>
+                {movimientos.map((m) => {
+                  const s = tipoStyle(m.tipo);
+                  return (
+                    <tr key={m.id} style={{ borderBottom: '1px solid var(--border, #e2e8f0)' }}>
+                      <td style={{ padding: '10px 16px' }}>
+                        <span style={{ padding: '3px 8px', borderRadius: 12, fontSize: 12, fontWeight: 600, background: s.bg, color: s.color }}>
+                          {m.tipo}
+                        </span>
+                      </td>
+                      <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{m.producto_nombre}</td>
+                      <td style={{ padding: '10px 16px', fontWeight: 700, color: m.tipo === 'entrada' ? '#38a169' : m.tipo === 'salida' ? '#e53e3e' : '#d69e2e' }}>
+                        {m.tipo === 'entrada' ? '+' : m.tipo === 'salida' ? '-' : ''}{m.cantidad}
+                      </td>
+                      <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{m.stock_anterior}</td>
+                      <td style={{ padding: '10px 16px', fontWeight: 600, color: 'var(--text-primary, #2d3748)' }}>{m.stock_nuevo}</td>
+                      <td style={{ padding: '10px 16px', fontSize: 13, color: 'var(--text-secondary, #64748b)' }}>{m.referencia || '-'}</td>
+                      <td style={{ padding: '10px 16px', fontSize: 13, color: 'var(--text-primary, #2d3748)' }}>{m.usuario_nombre}</td>
+                      <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-primary, #2d3748)' }}>{new Date(m.created_at).toLocaleString()}</td>
+                    </tr>
+                  );
+                })}
+                {movimientos.length === 0 && !loading && (
+                  <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #a0aec0)' }}>No hay movimientos registrados</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Pagination page={page} limit={20} total={total} onChange={setPage} />
+        </div>
+      )}
+    </div>
+  );
+}
