@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
+import { useEmpresa } from '../context/EmpresaContext';
 
 const menuItems = [
   { path: '/', label: 'Dashboard', icon: '📊', roles: ['super_admin', 'admin'] },
@@ -12,6 +13,7 @@ const menuItems = [
   { path: '/movimientos-stock', label: 'Mov. Stock', icon: '📦', roles: ['super_admin', 'admin', 'almacen'] },
   { path: '/auditoria', label: 'Auditoria', icon: '📜', roles: ['super_admin', 'admin'] },
   { path: '/usuarios', label: 'Usuarios', icon: '🔐', roles: ['super_admin', 'admin'] },
+  { path: '/empresas', label: 'Empresas', icon: '🏢', roles: ['super_admin'] },
   { path: '/config', label: 'Configuracion', icon: '⚙️', roles: ['super_admin'] },
   { path: '/reportes', label: 'Reportes', icon: '📈', roles: ['super_admin', 'admin', 'contador'] },
 ];
@@ -19,6 +21,7 @@ const menuItems = [
 export default function Layout({ children }) {
   const { usuario, logout } = useAuth();
   const { dark, toggle } = useTheme();
+  const { empresas, selectedEmpresa, selectEmpresa } = useEmpresa();
   const navigate = useNavigate();
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
@@ -159,6 +162,26 @@ export default function Layout({ children }) {
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+            {selectedEmpresa && (
+              <select
+                value={selectedEmpresa.id}
+                onChange={(e) => {
+                  const emp = empresas.find(e => e.id === parseInt(e.target.value));
+                  if (emp) selectEmpresa(emp);
+                }}
+                style={{
+                  background: 'var(--bg-secondary, #edf2f7)', border: 'none',
+                  borderRadius: 8, padding: '6px 10px', fontSize: 12,
+                  color: 'var(--text-primary, #1a202c)', cursor: 'pointer',
+                  maxWidth: 180
+                }}
+                title="Empresa activa"
+              >
+                {empresas.map(emp => (
+                  <option key={emp.id} value={emp.id}>{emp.razon_social}</option>
+                ))}
+              </select>
+            )}
             <button
               onClick={toggle}
               title={dark ? 'Modo claro' : 'Modo oscuro'}

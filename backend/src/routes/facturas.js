@@ -18,8 +18,8 @@ router.get('/', async (req, res) => {
       params
     );
     const [rows] = await pool.query(
-      `SELECT f.*, c.nombre as cliente_nombre, c.numero_documento, oc.codigo as orden_codigo
-       FROM facturas f JOIN clientes c ON f.cliente_id = c.id LEFT JOIN ordenes_compra oc ON f.orden_id = oc.id
+      `SELECT f.*, c.nombre as cliente_nombre, c.numero_documento, oc.codigo as orden_codigo, e.razon_social as empresa_razon_social, e.ruc as empresa_ruc
+       FROM facturas f JOIN clientes c ON f.cliente_id = c.id LEFT JOIN ordenes_compra oc ON f.orden_id = oc.id LEFT JOIN empresas e ON f.empresa_id = e.id
        WHERE 1=1 ${searchWhere} ORDER BY f.created_at DESC LIMIT ? OFFSET ?`,
       [...params, parseInt(limit), offset]
     );
@@ -32,8 +32,11 @@ router.get('/', async (req, res) => {
 router.get('/:id', async (req, res) => {
   try {
     const [rows] = await pool.query(
-      `SELECT f.*, c.nombre as cliente_nombre, c.numero_documento, c.direccion, oc.codigo as orden_codigo
-       FROM facturas f JOIN clientes c ON f.cliente_id = c.id LEFT JOIN ordenes_compra oc ON f.orden_id = oc.id WHERE f.id = ?`,
+      `SELECT f.*, c.nombre as cliente_nombre, c.numero_documento, c.direccion, oc.codigo as orden_codigo,
+              e.razon_social as empresa_razon_social, e.ruc as empresa_ruc
+       FROM facturas f JOIN clientes c ON f.cliente_id = c.id
+       LEFT JOIN ordenes_compra oc ON f.orden_id = oc.id
+       LEFT JOIN empresas e ON f.empresa_id = e.id WHERE f.id = ?`,
       [req.params.id]
     );
     if (rows.length === 0) return res.status(404).json({ error: 'Factura no encontrada' });
@@ -47,10 +50,11 @@ router.post('/', auditMiddleware('emitir', 'facturas'), async (req, res) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    const { orden_id, cliente_id, tipo } = req.body;
+    const { orden_id, cliente_id, tipo, empresa_id } = req.body;
     if (!cliente_id || !tipo) {
       await connection.rollback(); return res.status(400).json({ error: 'Cliente y tipo requeridos' });
     }
+    const empId = empresa_id || 1;
     let orden = null;
     if (orden_id) {
       const [ordenes] = await connection.query(
@@ -59,23 +63,23 @@ router.post('/', auditMiddleware('emitir', 'facturas'), async (req, res) => {
       if (ordenes.length === 0) { await connection.rollback(); return res.status(400).json({ error: 'Orden no encontrada o anulada' }); }
       orden = ordenes[0];
     }
+    const [empresaRows] = await connection.query('SELECT * FROM empresas WHERE id = ?', [empId]);
+    if (empresaRows.length === 0) { await connection.rollback(); return res.status(400).json({ error: 'Empresa no encontrada' }); }
+    const empresa = empresaRows[0];
     const serieKey = tipo === 'boleta' ? 'serie_boleta' : 'serie_factura';
     const correlativoKey = tipo === 'boleta' ? 'correlativo_boleta' : 'correlativo_factura';
-    const [config] = await connection.query(
-      'SELECT clave, valor FROM configuracion WHERE clave IN (?, ?)', [serieKey, correlativoKey]
-    );
-    const serie = config.find(c => c.clave === serieKey)?.valor || 'X001';
-    const correlativo = parseInt(config.find(c => c.clave === correlativoKey)?.valor || '1');
+    const serie = empresa[serieKey];
+    const correlativo = empresa[correlativoKey];
     const subtotal = orden ? orden.subtotal : req.body.subtotal;
     const igv = orden ? orden.igv : req.body.igv || 0;
     const total = orden ? orden.total : req.body.total;
 
     const [result] = await connection.query(
-      `INSERT INTO facturas (serie, correlativo, orden_id, cliente_id, tipo, subtotal, igv, total)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-      [serie, correlativo, orden_id || null, cliente_id, tipo, subtotal, igv, total]
+      `INSERT INTO facturas (serie, correlativo, orden_id, cliente_id, empresa_id, tipo, subtotal, igv, total)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+      [serie, correlativo, orden_id || null, cliente_id, empId, tipo, subtotal, igv, total]
     );
-    await connection.query('UPDATE configuracion SET valor = ? WHERE clave = ?', [correlativo + 1, correlativoKey]);
+    await connection.query(`UPDATE empresas SET ${correlativoKey} = ? WHERE id = ?`, [correlativo + 1, empId]);
     if (orden_id) {
       await connection.query('UPDATE ordenes_compra SET estado = "completada" WHERE id = ?', [orden_id]);
     }
@@ -83,6 +87,8 @@ router.post('/', auditMiddleware('emitir', 'facturas'), async (req, res) => {
     res.status(201).json({
       id: result.insertId,
       numero: `${serie}-${String(correlativo).padStart(8, '0')}`,
+      empresa_id: empId,
+      empresa_razon_social: empresa.razon_social,
       mensaje: 'Factura emitida correctamente'
     });
   } catch (error) {

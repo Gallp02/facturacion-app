@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { EmpresaProvider } from './context/EmpresaContext';
 import Layout from './components/Layout';
 import Login from './pages/Login';
 import Dashboard from './pages/Dashboard';
@@ -10,6 +11,7 @@ import Clientes from './pages/Clientes';
 import Ordenes from './pages/Ordenes';
 import Facturas from './pages/Facturas';
 import Usuarios from './pages/Usuarios';
+import Empresas from './pages/Empresas';
 import Config from './pages/Config';
 import Reportes from './pages/Reportes';
 import MovimientosStock from './pages/MovimientosStock';
@@ -26,6 +28,7 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <ToastProvider>
+          <EmpresaProvider>
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
@@ -36,12 +39,14 @@ function App() {
               <Route path="/facturas" element={<PrivateRoute><Facturas /></PrivateRoute>} />
               <Route path="/usuarios" element={<PrivateRoute><Usuarios /></PrivateRoute>} />
               <Route path="/config" element={<PrivateRoute><Config /></PrivateRoute>} />
+              <Route path="/empresas" element={<PrivateRoute><Empresas /></PrivateRoute>} />
               <Route path="/reportes" element={<PrivateRoute><Reportes /></PrivateRoute>} />
               <Route path="/movimientos-stock" element={<PrivateRoute><MovimientosStock /></PrivateRoute>} />
               <Route path="/auditoria" element={<PrivateRoute><AuditLog /></PrivateRoute>} />
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </BrowserRouter>
+          </EmpresaProvider>
         </ToastProvider>
       </AuthProvider>
     </ThemeProvider>

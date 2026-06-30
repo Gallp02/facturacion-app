@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { facturasAPI, ordenesAPI, clientesAPI } from '../services/api';
 import { useToast } from '../context/ToastContext';
+import { useEmpresa } from '../context/EmpresaContext';
 import SearchBar from '../components/SearchBar';
 import Pagination from '../components/Pagination';
 import { TableSkeleton } from '../components/Skeleton';
@@ -8,6 +9,7 @@ import { exportToCSV } from '../utils/export';
 
 export default function Facturas() {
   const { addToast } = useToast();
+  const { selectedEmpresa } = useEmpresa();
   const [facturas, setFacturas] = useState([]);
   const [ordenes, setOrdenes] = useState([]);
   const [clientes, setClientes] = useState([]);
@@ -59,7 +61,7 @@ export default function Facturas() {
     if (!form.orden_id && (!form.subtotal || !form.total)) { addToast('Complete subtotal y total', 'error'); return; }
     setSaving(true);
     try {
-      await facturasAPI.create(form);
+      await facturasAPI.create({ ...form, empresa_id: selectedEmpresa?.id });
       setShowForm(false);
       setForm({ orden_id: '', cliente_id: '', tipo: 'boleta', subtotal: '', igv: '', total: '' });
       addToast('Factura emitida correctamente', 'success');

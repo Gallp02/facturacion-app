@@ -14,6 +14,7 @@ const reporteRoutes = require('./routes/reportes');
 const configRoutes = require('./routes/config');
 const movimientosStockRoutes = require('./routes/movimientosStock');
 const auditLogRoutes = require('./routes/auditLog');
+const empresaRoutes = require('./routes/empresas');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -32,6 +33,7 @@ app.use('/api/reportes', reporteRoutes);
 app.use('/api/config', configRoutes);
 app.use('/api/movimientos-stock', movimientosStockRoutes);
 app.use('/api/audit-log', auditLogRoutes);
+app.use('/api/empresas', empresaRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', version: '1.0.0' });

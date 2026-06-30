@@ -91,6 +91,13 @@ export const movimientosStockAPI = {
   create: (data) => api.post('/movimientos-stock', data),
 };
 
+export const empresasAPI = {
+  getAll: () => api.get('/empresas'),
+  getById: (id) => api.get(`/empresas/${id}`),
+  create: (data) => api.post('/empresas', data),
+  update: (id, data) => api.put(`/empresas/${id}`, data),
+};
+
 export const auditLogAPI = {
   getAll: (params) => api.get('/audit-log', { params }),
   getResumen: () => api.get('/audit-log/resumen'),
