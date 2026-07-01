@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useNavigate, useLocation, Link, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
@@ -26,6 +26,9 @@ export default function Layout() {
   const location = useLocation();
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const dateStr = useMemo(() => new Date().toLocaleDateString('es-PE', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
+  }), []);
 
   const handleLogout = () => {
     logout();
@@ -83,7 +86,7 @@ export default function Layout() {
                 color: active ? 'white' : 'rgba(255,255,255,0.7)',
                 background: active ? 'rgba(255,255,255,0.15)' : 'transparent',
                 fontSize: 14, fontWeight: active ? 600 : 400,
-                whiteSpace: 'nowrap', transition: 'all 0.15s'
+                whiteSpace: 'nowrap'
               }}
             >
               <span style={{ fontSize: 16 }}>{item.icon}</span>
@@ -156,9 +159,7 @@ export default function Layout() {
               ☰
             </button>
             <div style={{ fontSize: 13, color: 'var(--text-secondary, #64748b)' }}>
-              {new Date().toLocaleDateString('es-PE', {
-                weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
-              })}
+              {dateStr}
             </div>
           </div>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
