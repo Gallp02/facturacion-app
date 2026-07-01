@@ -255,7 +255,8 @@ export default function Morosos() {
           </form>
         </Modal>
 
-      <Modal open={showDetalle} title={`Prestamo - ${detalle.cliente_nombre}`} maxWidth={650} onClose={() => setShowDetalle(false)}>
+      {showDetalle && detalle && (
+        <Modal open={showDetalle} title={`Prestamo - ${detalle.cliente_nombre}`} maxWidth={650} onClose={() => setShowDetalle(false)}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 20, fontSize: 13 }}>
             <div><strong>Cliente:</strong> {detalle.cliente_nombre}{detalle.cliente_apodo ? ` (${detalle.cliente_apodo})` : ''}</div>
             <div><strong>Documento:</strong> {detalle.cliente_doc}</div>
@@ -304,6 +305,7 @@ export default function Morosos() {
             </tbody>
           </table>
         </Modal>
+      )}
     </div>
   );
 }
