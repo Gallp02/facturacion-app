@@ -109,7 +109,7 @@ export default function Ordenes() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ margin: 0, color: 'var(--text-primary, #1a202c)' }}>Ordenes de Compra</h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <SearchBar value={search} onChange={setSearch} placeholder="Buscar orden..." />
           <select value={estadoFilter} onChange={(e) => setEstadoFilter(e.target.value)}
             style={{ padding: '8px 12px', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
@@ -123,19 +123,19 @@ export default function Ordenes() {
             style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
             ⬇ CSV
           </button>
-          <button onClick={() => setShowForm(!showForm)}
+          <button onClick={() => setShowForm(true)}
             style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-            {showForm ? 'Cancelar' : '+ Nueva Orden'}
+            + Nueva Orden
           </button>
         </div>
       </div>
 
-      {showForm && (
-        <form onSubmit={handleSubmit} style={{ background: 'var(--card-bg, white)', padding: 20, borderRadius: 12, marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
+      <Modal open={showForm} onClose={() => { setShowForm(false); setForm({ cliente_id: '', notas: '', items: [{ producto_id: '', cantidad: 1 }] }); }} title="Nueva Orden de Compra" maxWidth={650}>
+        <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 16 }}>
             <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Cliente</label>
             <select value={form.cliente_id} onChange={(e) => setForm({ ...form, cliente_id: e.target.value })} required
-              style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
+              style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
               <option value="">Seleccionar cliente</option>
               {clientes.map(c => <option key={c.id} value={c.id}>{c.nombre} ({c.numero_documento})</option>)}
             </select>
@@ -153,7 +153,7 @@ export default function Ordenes() {
               </button>
             </div>
             {form.items.map((item, i) => (
-              <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center' }}>
+              <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 8, alignItems: 'center' }}>
                 <select value={item.producto_id} onChange={(e) => updateItem(i, 'producto_id', e.target.value)} required
                   style={{ flex: 2, padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
                   <option value="">Seleccionar producto</option>
@@ -167,11 +167,16 @@ export default function Ordenes() {
               </div>
             ))}
           </div>
-          <button type="submit" disabled={saving} style={{ padding: '10px 24px', background: saving ? '#a0aec0' : '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
-            {saving ? 'Creando...' : 'Crear Orden'}
-          </button>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button type="button" onClick={() => { setShowForm(false); setForm({ cliente_id: '', notas: '', items: [{ producto_id: '', cantidad: 1 }] }); }} style={{ padding: '10px 20px', background: 'var(--bg-secondary, #edf2f7)', color: 'var(--text-primary, #2d3748)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving} style={{ padding: '10px 24px', background: saving ? '#a0aec0' : '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              {saving ? 'Creando...' : 'Crear Orden'}
+            </button>
+          </div>
         </form>
-      )}
+      </Modal>
 
       {selectedOrden && (
         <div style={{ background: 'var(--card-bg, white)', padding: 20, borderRadius: 12, marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
@@ -179,7 +184,7 @@ export default function Ordenes() {
             <h3 style={{ margin: 0, color: 'var(--text-primary, #1a202c)' }}>Orden: {selectedOrden.codigo}</h3>
             <button onClick={() => setSelectedOrden(null)} style={{ padding: '6px 12px', background: 'var(--bg-secondary, #e2e8f0)', border: 'none', borderRadius: 6, cursor: 'pointer', color: 'var(--text-primary, #2d3748)' }}>Cerrar</button>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 13, marginBottom: 16 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, fontSize: 13, marginBottom: 16 }}>
             <div style={{ color: 'var(--text-primary, #2d3748)' }}><strong>Cliente:</strong> {selectedOrden.cliente_nombre}</div>
             <div style={{ color: 'var(--text-primary, #2d3748)' }}><strong>Documento:</strong> {selectedOrden.numero_documento}</div>
             <div style={{ color: 'var(--text-primary, #2d3748)' }}><strong>Estado:</strong>

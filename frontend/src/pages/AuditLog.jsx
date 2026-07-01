@@ -50,7 +50,7 @@ export default function AuditLog() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ margin: 0, color: 'var(--text-primary, #1a202c)' }}>Auditoria</h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <SearchBar value={search} onChange={setSearch} placeholder="Buscar en auditoria..." />
           <button onClick={() => exportToCSV(logs, 'auditoria')} title="Exportar CSV"
             style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
@@ -114,9 +114,9 @@ export default function AuditLog() {
                 </tr>
               </thead>
               <tbody>
-                {logs.map((l) => {
-                  let detalle = l.detalle;
-                  try { const p = JSON.parse(l.detalle); detalle = p?.body ? Object.keys(p.body).slice(0, 4).map(k => `${k}:${p.body[k]}`).join(', ') : l.detalle; } catch (e) { }
+                  {logs.map((l) => {
+                  let detalle = typeof l.detalle === 'string' ? l.detalle : JSON.stringify(l.detalle);
+                  try { const p = JSON.parse(detalle); detalle = p?.body ? Object.keys(p.body).slice(0, 4).map(k => `${k}:${p.body[k]}`).join(', ') : detalle; } catch (e) { }
                   return (
                     <tr key={l.id} style={{ borderBottom: '1px solid var(--border, #e2e8f0)' }}>
                       <td style={{ padding: '10px 16px' }}>
@@ -126,8 +126,8 @@ export default function AuditLog() {
                       </td>
                       <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{l.tabla}</td>
                       <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{l.usuario_nombre}</td>
-                      <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-secondary, #64748b)', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={l.detalle}>
-                        {detalle?.substring(0, 80) || '-'}
+                      <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-secondary, #64748b)', maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }} title={typeof l.detalle === 'string' ? l.detalle : JSON.stringify(l.detalle)}>
+                        {String(detalle).substring(0, 80) || '-'}
                       </td>
                       <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-primary, #2d3748)' }}>{new Date(l.created_at).toLocaleString()}</td>
                     </tr>

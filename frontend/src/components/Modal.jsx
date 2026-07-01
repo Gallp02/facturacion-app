@@ -1,4 +1,4 @@
-export default function Modal({ open, onClose, title, children, onConfirm, confirmText = 'Confirmar', confirmColor = '#e53e3e', loading = false }) {
+export default function Modal({ open, onClose, title, children, onConfirm, confirmText = 'Confirmar', confirmColor = '#e53e3e', loading = false, maxWidth = 420 }) {
   if (!open) return null;
   return (
     <div
@@ -18,16 +18,16 @@ export default function Modal({ open, onClose, title, children, onConfirm, confi
           borderRadius: 16,
           padding: 28,
           width: '90%',
-          maxWidth: 420,
+          maxWidth: maxWidth,
           boxShadow: '0 25px 60px rgba(0,0,0,0.3)',
-          animation: 'scaleIn 0.15s ease'
-        }}
-      >
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-          <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--text-primary, #1a202c)' }}>{title}</h3>
-          <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--text-secondary, #718096)', padding: 0, lineHeight: 1 }}>×</button>
-        </div>
-        <div style={{ fontSize: 14, color: 'var(--text-secondary, #4a5568)', lineHeight: 1.6, marginBottom: 20 }}>{children}</div>
+        animation: 'scaleIn 0.15s ease'
+      }}
+    >
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
+        <h3 style={{ margin: 0, fontSize: 17, fontWeight: 700, color: 'var(--text-primary, #1a202c)' }}>{title}</h3>
+        <button onClick={onClose} style={{ background: 'none', border: 'none', fontSize: 20, cursor: 'pointer', color: 'var(--text-secondary, #718096)', padding: 0, lineHeight: 1 }}>×</button>
+      </div>
+      <div style={{ fontSize: 14, color: 'var(--text-secondary, #4a5568)', lineHeight: 1.6, marginBottom: onConfirm ? 20 : 0 }}>{children}</div>
         {onConfirm && (
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
             <button onClick={onClose} style={{ padding: '10px 20px', background: 'var(--bg-secondary, #edf2f7)', color: 'var(--text-primary, #2d3748)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>

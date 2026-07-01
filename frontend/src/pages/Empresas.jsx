@@ -2,11 +2,13 @@ import { useState, useEffect } from 'react';
 import { empresasAPI } from '../services/api';
 import { useEmpresa } from '../context/EmpresaContext';
 import { useToast } from '../context/ToastContext';
+import Modal from '../components/Modal';
 
 export default function Empresas() {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
   const [editando, setEditando] = useState(null);
+  const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({});
   const { loadEmpresas } = useEmpresa();
   const { addToast } = useToast();
@@ -47,6 +49,7 @@ export default function Empresas() {
       await empresasAPI.create(form);
       addToast('Empresa creada', 'success');
       setForm({ ruc: '', razon_social: '', direccion: '', serie_boleta: 'B001', serie_factura: 'F001' });
+      setShowModal(false);
       load();
       loadEmpresas();
     } catch {
@@ -72,17 +75,52 @@ export default function Empresas() {
     <div>
       <h2 style={{ marginBottom: 16, color: 'var(--text-primary, #1a202c)' }}>Gestion de Empresas</h2>
 
-      <div style={{ ...styles.container, marginBottom: 24 }}>
-        <h3 style={{ margin: '0 0 12px', fontSize: 14, color: 'var(--text-primary, #1a202c)' }}>Nueva Empresa</h3>
-        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 100px 100px auto', gap: 8, alignItems: 'end' }}>
-          <input placeholder="RUC" value={form.ruc || ''} onChange={e => setForm({ ...form, ruc: e.target.value })} style={styles.input} />
-          <input placeholder="Razon Social" value={form.razon_social || ''} onChange={e => setForm({ ...form, razon_social: e.target.value })} style={styles.input} />
-          <input placeholder="Direccion" value={form.direccion || ''} onChange={e => setForm({ ...form, direccion: e.target.value })} style={styles.input} />
-          <input placeholder="Serie Boleta" value={form.serie_boleta || 'B001'} onChange={e => setForm({ ...form, serie_boleta: e.target.value })} style={styles.input} />
-          <input placeholder="Serie Factura" value={form.serie_factura || 'F001'} onChange={e => setForm({ ...form, serie_factura: e.target.value })} style={styles.input} />
-          <button onClick={crear} style={{ ...styles.btn, background: '#1e3a5f', color: 'white' }}>Crear</button>
-        </div>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>
+        <button onClick={() => { setForm({ ruc: '', razon_social: '', direccion: '', serie_boleta: 'B001', serie_factura: 'F001' }); setShowModal(true); }}
+          style={{ padding: '10px 20px', background: '#1e3a5f', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+          + Nueva Empresa
+        </button>
       </div>
+
+      <Modal open={showModal} onClose={() => setShowModal(false)} title="Nueva Empresa" maxWidth={500}>
+        <form onSubmit={(e) => { e.preventDefault(); crear(); }} style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>RUC</label>
+              <input placeholder="20123456789" value={form.ruc || ''} onChange={e => setForm({ ...form, ruc: e.target.value })}
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Razon Social</label>
+              <input placeholder="Empresa S.A.C." value={form.razon_social || ''} onChange={e => setForm({ ...form, razon_social: e.target.value })}
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Direccion</label>
+              <input placeholder="Av. Principal 123" value={form.direccion || ''} onChange={e => setForm({ ...form, direccion: e.target.value })}
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Serie Boleta</label>
+              <input placeholder="B001" value={form.serie_boleta || 'B001'} onChange={e => setForm({ ...form, serie_boleta: e.target.value })}
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Serie Factura</label>
+              <input placeholder="F001" value={form.serie_factura || 'F001'} onChange={e => setForm({ ...form, serie_factura: e.target.value })}
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button type="button" onClick={() => setShowModal(false)} style={{ padding: '10px 20px', background: 'var(--bg-secondary, #edf2f7)', color: 'var(--text-primary, #2d3748)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+              Cancelar
+            </button>
+            <button type="submit" style={{ padding: '10px 24px', background: '#1e3a5f', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              Crear Empresa
+            </button>
+          </div>
+        </form>
+      </Modal>
 
       <div style={styles.container}>
         <table style={styles.table}>

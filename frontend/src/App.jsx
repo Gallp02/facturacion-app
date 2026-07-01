@@ -20,7 +20,7 @@ import AuditLog from './pages/AuditLog';
 function PrivateRoute({ children }) {
   const { usuario, loading } = useAuth();
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #718096)' }}>Cargando...</div>;
-  return usuario ? <Layout>{children}</Layout> : <Navigate to="/login" />;
+  return usuario ? <EmpresaProvider><Layout>{children}</Layout></EmpresaProvider> : <Navigate to="/login" />;
 }
 
 function App() {
@@ -28,7 +28,6 @@ function App() {
     <ThemeProvider>
       <AuthProvider>
         <ToastProvider>
-          <EmpresaProvider>
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
@@ -46,7 +45,6 @@ function App() {
               <Route path="*" element={<Navigate to="/" />} />
             </Routes>
           </BrowserRouter>
-          </EmpresaProvider>
         </ToastProvider>
       </AuthProvider>
     </ThemeProvider>

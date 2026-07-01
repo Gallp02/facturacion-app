@@ -83,7 +83,7 @@ export default function MovimientosStock() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ margin: 0, color: 'var(--text-primary, #1a202c)' }}>Movimientos de Stock</h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <SearchBar value={search} onChange={setSearch} placeholder="Buscar producto o usuario..." />
           <select value={tipoFilter} onChange={(e) => setTipoFilter(e.target.value)}
             style={{ padding: '8px 12px', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
@@ -97,43 +97,60 @@ export default function MovimientosStock() {
             ⬇ CSV
           </button>
           {canManage && (
-            <button onClick={() => setShowForm(!showForm)}
-              style={{ padding: '10px 20px', background: showForm ? '#e53e3e' : '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-              {showForm ? 'Cancelar' : '+ Nuevo Movimiento'}
+            <button onClick={() => { setShowForm(true); setForm({ producto_id: '', tipo: 'entrada', cantidad: 1, referencia: '' }); }}
+              style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              + Nuevo Movimiento
             </button>
           )}
         </div>
       </div>
 
-      {showForm && (
-        <form onSubmit={handleSubmit} style={{ background: 'var(--card-bg, white)', padding: 20, borderRadius: 12, marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
-            <select value={form.producto_id} onChange={(e) => setForm({ ...form, producto_id: e.target.value })} required
-              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
-              <option value="">Seleccionar producto *</option>
-              {productos.map(p => <option key={p.id} value={p.id}>{p.nombre} (Stock: {p.stock})</option>)}
-            </select>
-            <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}
-              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
-              <option value="entrada">Entrada (+)</option>
-              <option value="salida">Salida (-)</option>
-              <option value="ajuste">Ajuste (+/-)</option>
-            </select>
-            <input type="number" min="1" value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: parseInt(e.target.value) || 1 })} required
-              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
-            <input placeholder="Referencia (opcional)" value={form.referencia} onChange={(e) => setForm({ ...form, referencia: e.target.value })}
-              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+      <Modal open={showForm} onClose={() => { setShowForm(false); setForm({ producto_id: '', tipo: 'entrada', cantidad: 1, referencia: '' }); }} title="Nuevo Movimiento" maxWidth={500}>
+        <form onSubmit={handleSubmit}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Producto *</label>
+              <select value={form.producto_id} onChange={(e) => setForm({ ...form, producto_id: e.target.value })} required
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
+                <option value="">Seleccionar producto</option>
+                {productos.map(p => <option key={p.id} value={p.id}>{p.nombre} (Stock: {p.stock})</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Tipo</label>
+              <select value={form.tipo} onChange={(e) => setForm({ ...form, tipo: e.target.value })}
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
+                <option value="entrada">Entrada (+)</option>
+                <option value="salida">Salida (-)</option>
+                <option value="ajuste">Ajuste (+/-)</option>
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Cantidad *</label>
+              <input type="number" min="1" value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: parseInt(e.target.value) || 1 })} required
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Referencia</label>
+              <input placeholder="Opcional" value={form.referencia} onChange={(e) => setForm({ ...form, referencia: e.target.value })}
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            </div>
           </div>
-          <div style={{ marginTop: 12, fontSize: 13, color: 'var(--text-secondary, #718096)' }}>
+          <div style={{ marginTop: 12, marginBottom: 12, fontSize: 13, color: 'var(--text-secondary, #718096)' }}>
             {form.tipo === 'entrada' && 'Aumenta el stock del producto'}
             {form.tipo === 'salida' && 'Reduce el stock del producto (requiere stock suficiente)'}
             {form.tipo === 'ajuste' && 'Valor positivo = entrada, valor negativo = salida'}
           </div>
-          <button type="submit" disabled={saving} style={{ marginTop: 12, padding: '10px 24px', background: saving ? '#a0aec0' : '#38a169', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
-            {saving ? 'Registrando...' : 'Registrar Movimiento'}
-          </button>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button type="button" onClick={() => { setShowForm(false); setForm({ producto_id: '', tipo: 'entrada', cantidad: 1, referencia: '' }); }} style={{ padding: '10px 20px', background: 'var(--bg-secondary, #edf2f7)', color: 'var(--text-primary, #2d3748)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving} style={{ padding: '10px 24px', background: saving ? '#a0aec0' : '#38a169', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              {saving ? 'Registrando...' : 'Registrar Movimiento'}
+            </button>
+          </div>
         </form>
-      )}
+      </Modal>
 
       {loading ? <TableSkeleton rows={6} cols={7} /> : (
         <div style={{ background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>

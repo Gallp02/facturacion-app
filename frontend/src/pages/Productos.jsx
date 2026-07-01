@@ -90,7 +90,13 @@ export default function Productos() {
     setShowForm(true);
   };
 
-  const resetForm = () => {
+  const openCreate = () => {
+    setShowForm(true);
+    setEditing(null);
+    setForm({ codigo: '', nombre: '', descripcion: '', categoria_id: '', precio_venta: '', precio_compra: '', stock: '0', stock_minimo: '5', igv: true });
+  };
+
+  const closeForm = () => {
     setShowForm(false);
     setEditing(null);
     setForm({ codigo: '', nombre: '', descripcion: '', categoria_id: '', precio_venta: '', precio_compra: '', stock: '0', stock_minimo: '5', igv: true });
@@ -100,50 +106,79 @@ export default function Productos() {
     <div>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ margin: 0, color: 'var(--text-primary, #1a202c)' }}>Productos</h1>
-        <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <SearchBar value={search} onChange={setSearch} placeholder="Buscar producto..." />
           <button onClick={() => exportToCSV(productos, 'productos')} title="Exportar CSV"
             style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
             ⬇ CSV
           </button>
-          <button onClick={resetForm} style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-            {showForm ? 'Cancelar' : '+ Nuevo Producto'}
+          <button onClick={openCreate} style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+            + Nuevo Producto
           </button>
         </div>
       </div>
 
-      {showForm && (
-        <form onSubmit={handleSubmit} style={{ background: 'var(--card-bg, white)', padding: 20, borderRadius: 12, marginBottom: 20, boxShadow: '0 1px 3px rgba(0,0,0,0.08)' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(180px, 1fr))', gap: 12 }}>
-            <input placeholder="Codigo *" value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} required
-              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13 }} />
-            <input placeholder="Nombre *" value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required
-              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13 }} />
-            <input placeholder="Descripcion" value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
-              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13 }} />
-            <select value={form.categoria_id} onChange={(e) => setForm({ ...form, categoria_id: e.target.value })}
-              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13 }}>
-              <option value="">Sin categoria</option>
-              {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
-            </select>
-            <input placeholder="Precio Venta *" type="number" step="0.01" value={form.precio_venta} onChange={(e) => setForm({ ...form, precio_venta: e.target.value })} required
-              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13 }} />
-            <input placeholder="Precio Compra" type="number" step="0.01" value={form.precio_compra} onChange={(e) => setForm({ ...form, precio_compra: e.target.value })}
-              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13 }} />
-            <input placeholder="Stock" type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })}
-              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13 }} />
-            <input placeholder="Stock Minimo" type="number" value={form.stock_minimo} onChange={(e) => setForm({ ...form, stock_minimo: e.target.value })}
-              style={{ padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13 }} />
-            <label style={{ display: 'flex', alignItems: 'center', gap: 8, fontSize: 13 }}>
-              <input type="checkbox" checked={form.igv} onChange={(e) => setForm({ ...form, igv: e.target.checked })} />
-              Afecto a IGV
-            </label>
+      <Modal open={showForm} onClose={closeForm} title={editing ? 'Editar Producto' : 'Nuevo Producto'} maxWidth={600}>
+        <form onSubmit={handleSubmit}>
+          <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginBottom: 16 }}>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Codigo *</label>
+              <input value={form.codigo} onChange={(e) => setForm({ ...form, codigo: e.target.value })} required
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Nombre *</label>
+              <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Categoria</label>
+              <select value={form.categoria_id} onChange={(e) => setForm({ ...form, categoria_id: e.target.value })}
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
+                <option value="">Sin categoria</option>
+                {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Precio Venta *</label>
+              <input type="number" step="0.01" value={form.precio_venta} onChange={(e) => setForm({ ...form, precio_venta: e.target.value })} required
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Precio Compra</label>
+              <input type="number" step="0.01" value={form.precio_compra} onChange={(e) => setForm({ ...form, precio_compra: e.target.value })}
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Descripcion</label>
+              <input value={form.descripcion} onChange={(e) => setForm({ ...form, descripcion: e.target.value })}
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Stock</label>
+              <input type="number" value={form.stock} onChange={(e) => setForm({ ...form, stock: e.target.value })}
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Stock Minimo</label>
+              <input type="number" value={form.stock_minimo} onChange={(e) => setForm({ ...form, stock_minimo: e.target.value })}
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            </div>
           </div>
-          <button type="submit" disabled={saving} style={{ marginTop: 12, padding: '10px 24px', background: saving ? '#a0aec0' : '#38a169', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600 }}>
-            {saving ? 'Guardando...' : editing ? 'Actualizar' : 'Crear Producto'}
-          </button>
+          <label style={{ display: 'flex', alignItems: 'center', gap: 12, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)', marginBottom: 16 }}>
+            <input type="checkbox" checked={form.igv} onChange={(e) => setForm({ ...form, igv: e.target.checked })} />
+            Afecto a IGV
+          </label>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
+            <button type="button" onClick={closeForm} style={{ padding: '10px 20px', background: 'var(--bg-secondary, #edf2f7)', color: 'var(--text-primary, #2d3748)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+              Cancelar
+            </button>
+            <button type="submit" disabled={saving} style={{ padding: '10px 24px', background: saving ? '#a0aec0' : '#38a169', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              {saving ? 'Guardando...' : editing ? 'Actualizar Producto' : 'Crear Producto'}
+            </button>
+          </div>
         </form>
-      )}
+      </Modal>
 
       {loading ? <TableSkeleton rows={6} cols={7} /> : (
         <div style={{ background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
