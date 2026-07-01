@@ -2,6 +2,7 @@ const express = require('express');
 const pool = require('../config/database');
 const { authenticate, authorize } = require('../middleware/auth');
 const { auditMiddleware } = require('../middleware/audit');
+const { generateFacturaPDF } = require('../utils/pdfGenerator');
 
 const router = express.Router();
 router.use(authenticate);
@@ -50,7 +51,7 @@ router.post('/', auditMiddleware('emitir', 'facturas'), async (req, res) => {
   const connection = await pool.getConnection();
   try {
     await connection.beginTransaction();
-    const { orden_id, cliente_id, tipo, empresa_id } = req.body;
+    const { orden_id, cliente_id, tipo, empresa_id, subtotal, igv, total } = req.body;
     if (!cliente_id || !tipo) {
       await connection.rollback(); return res.status(400).json({ error: 'Cliente y tipo requeridos' });
     }
@@ -70,14 +71,17 @@ router.post('/', auditMiddleware('emitir', 'facturas'), async (req, res) => {
     const correlativoKey = tipo === 'boleta' ? 'correlativo_boleta' : 'correlativo_factura';
     const serie = empresa[serieKey];
     const correlativo = empresa[correlativoKey];
-    const subtotal = orden ? orden.subtotal : req.body.subtotal;
-    const igv = orden ? orden.igv : req.body.igv || 0;
-    const total = orden ? orden.total : req.body.total;
+    const st = orden ? orden.subtotal : parseFloat(subtotal);
+    const igvVal = orden ? orden.igv : parseFloat(igv) || 0;
+    const tt = orden ? orden.total : parseFloat(total);
+    if (!orden && (isNaN(st) || isNaN(tt) || st <= 0 || tt <= 0)) {
+      await connection.rollback(); return res.status(400).json({ error: 'Subtotal y total deben ser numeros validos (>0)' });
+    }
 
     const [result] = await connection.query(
       `INSERT INTO facturas (serie, correlativo, orden_id, cliente_id, empresa_id, tipo, subtotal, igv, total)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
-      [serie, correlativo, orden_id || null, cliente_id, empId, tipo, subtotal, igv, total]
+      [serie, correlativo, orden_id || null, cliente_id, empId, tipo, st, igvVal, tt]
     );
     await connection.query(`UPDATE empresas SET ${correlativoKey} = ? WHERE id = ?`, [correlativo + 1, empId]);
     if (orden_id) {
@@ -109,6 +113,46 @@ router.put('/:id/estado-sunat', authorize('super_admin', 'admin'), auditMiddlewa
     res.json({ mensaje: 'Estado SUNAT actualizado' });
   } catch (error) {
     res.status(500).json({ error: 'Error al actualizar estado SUNAT' });
+  }
+});
+
+// GET /:id/pdf - Generar PDF de factura
+router.get('/:id/pdf', async (req, res) => {
+  try {
+    const [rows] = await pool.query(
+      `SELECT f.*, c.nombre as cliente_nombre, c.numero_documento, c.tipo_documento, c.direccion as cliente_direccion,
+              e.razon_social as empresa_razon_social, e.ruc as empresa_ruc, e.direccion as empresa_direccion,
+              e.telefono, e.email, e.web, e.banco_nombre, e.banco_tipo_cuenta, e.banco_numero_cuenta, e.banco_cci,
+              e.yape, oc.codigo as orden_codigo, oc.notas
+       FROM facturas f
+       JOIN clientes c ON f.cliente_id = c.id
+       LEFT JOIN ordenes_compra oc ON f.orden_id = oc.id
+       LEFT JOIN empresas e ON f.empresa_id = e.id
+       WHERE f.id = ?`,
+      [req.params.id]
+    );
+    if (rows.length === 0) return res.status(404).json({ error: 'Factura no encontrada' });
+    const factura = rows[0];
+
+    let items = [];
+    if (factura.orden_id) {
+      const [detalle] = await pool.query(
+        `SELECT do.*, p.codigo, p.nombre, p.descripcion
+         FROM detalle_orden do
+         JOIN productos p ON do.producto_id = p.id
+         WHERE do.orden_id = ?`,
+        [factura.orden_id]
+      );
+      items = detalle;
+    }
+
+    res.setHeader('Content-Type', 'application/pdf');
+    res.setHeader('Content-Disposition', `attachment; filename="factura-${factura.numero_completo}.pdf"`);
+    const doc = generateFacturaPDF(factura, items);
+    doc.pipe(res);
+  } catch (error) {
+    console.error('Error al generar PDF:', error);
+    res.status(500).json({ error: 'Error al generar PDF' });
   }
 });
 

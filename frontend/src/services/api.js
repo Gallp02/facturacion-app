@@ -68,6 +68,7 @@ export const facturasAPI = {
   getById: (id) => api.get(`/facturas/${id}`),
   create: (data) => api.post('/facturas', data),
   updateEstadoSunat: (id, estado, cdr_xml) => api.put(`/facturas/${id}/estado-sunat`, { estado_sunat: estado, cdr_xml }),
+  downloadPdf: (id) => api.get(`/facturas/${id}/pdf`, { responseType: 'blob' }),
 };
 
 export const reportesAPI = {

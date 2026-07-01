@@ -66,10 +66,23 @@ export default function Facturas() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.cliente_id) { addToast('Seleccione un cliente', 'error'); return; }
-    if (!form.orden_id && (!form.subtotal || !form.total)) { addToast('Complete subtotal y total', 'error'); return; }
+    const st = parseFloat(form.subtotal);
+    const tt = parseFloat(form.total);
+    if (!form.orden_id && (isNaN(st) || isNaN(tt) || st <= 0 || tt <= 0)) {
+      addToast('Ingrese subtotal y total validos (>0)', 'error');
+      return;
+    }
     setSaving(true);
     try {
-      await facturasAPI.create({ ...form, empresa_id: selectedEmpresa?.id });
+      await facturasAPI.create({
+        orden_id: form.orden_id,
+        cliente_id: form.cliente_id,
+        tipo: form.tipo,
+        subtotal: st,
+        igv: form.igv !== '' ? parseFloat(form.igv) : Math.round(st * 0.18 * 100) / 100,
+        total: tt,
+        empresa_id: selectedEmpresa?.id,
+      });
       setShowForm(false);
       setForm({ orden_id: '', cliente_id: '', tipo: 'boleta', subtotal: '', igv: '', total: '' });
       addToast('Factura emitida correctamente', 'success');
@@ -78,6 +91,22 @@ export default function Facturas() {
       addToast(err.response?.data?.error || 'Error al emitir factura', 'error');
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDownloadPdf = async (id, numero) => {
+    try {
+      const res = await facturasAPI.downloadPdf(id);
+      const url = window.URL.createObjectURL(new Blob([res.data]));
+      const link = document.createElement('a');
+      link.href = url;
+      link.setAttribute('download', `factura-${numero}.pdf`);
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      addToast('Error al descargar PDF', 'error');
     }
   };
 
@@ -168,6 +197,7 @@ export default function Facturas() {
                   <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Estado SUNAT</th>
                   <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Orden</th>
                   <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Fecha</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Acciones</th>
                 </tr>
               </thead>
               <tbody>
@@ -188,10 +218,17 @@ export default function Facturas() {
                     </td>
                     <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-primary, #2d3748)' }}>{f.orden_codigo || '-'}</td>
                     <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-primary, #2d3748)' }}>{new Date(f.created_at).toLocaleDateString()}</td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <button onClick={() => handleDownloadPdf(f.id, f.numero_completo)}
+                        title="Descargar PDF"
+                        style={{ padding: '5px 10px', background: '#e53e3e', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 11, fontWeight: 600 }}>
+                        PDF
+                      </button>
+                    </td>
                   </tr>
                 ))}
                 {facturas.length === 0 && !loading && (
-                  <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #a0aec0)' }}>No hay facturas emitidas</td></tr>
+                  <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #a0aec0)' }}>No hay facturas emitidas</td></tr>
                 )}
               </tbody>
             </table>
