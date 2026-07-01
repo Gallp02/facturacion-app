@@ -5,6 +5,7 @@ import { useEmpresa } from '../context/EmpresaContext';
 import SearchBar from '../components/SearchBar';
 import Pagination from '../components/Pagination';
 import Modal from '../components/Modal';
+import LoadingBar from '../components/LoadingBar';
 import { exportToCSV } from '../utils/export';
 import { getCache, setCache } from '../utils/pageCache';
 
@@ -15,7 +16,7 @@ export default function Facturas() {
   const [facturas, setFacturas] = useState(cached?.facturas || []);
   const [ordenes, setOrdenes] = useState(cached?.ordenes || []);
   const [clientes, setClientes] = useState(cached?.clientes || []);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(!cached);
   const loadedRef = useRef(!!cached);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -150,47 +151,52 @@ export default function Facturas() {
         </form>
       </Modal>
 
-      <div style={{ opacity: loading && loadedRef.current ? 0.5 : 1, transition: 'opacity 0.15s', background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 800 }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-secondary, #f7fafc)', textAlign: 'left' }}>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Numero</th>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Tipo</th>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Cliente</th>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Total</th>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Estado SUNAT</th>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Orden</th>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Fecha</th>
-              </tr>
-            </thead>
-            <tbody>
-              {facturas.map((f) => (
-                <tr key={f.id} style={{ borderBottom: '1px solid var(--border, #e2e8f0)' }}>
-                  <td style={{ padding: '10px 16px', fontWeight: 600, color: 'var(--text-primary, #2d3748)' }}>{f.numero_completo}</td>
-                  <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{f.tipo}</td>
-                  <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{f.cliente_nombre}</td>
-                  <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>S/ {parseFloat(f.total).toFixed(2)}</td>
-                  <td style={{ padding: '10px 16px' }}>
-                    <span style={{
-                      padding: '3px 8px', borderRadius: 12, fontSize: 12, fontWeight: 600,
-                      background: f.estado_sunat === 'aceptado' ? '#c6f6d5' : f.estado_sunat === 'rechazado' ? '#fed7d7' : '#fefcbf',
-                      color: f.estado_sunat === 'aceptado' ? '#276749' : f.estado_sunat === 'rechazado' ? '#9b2c2c' : '#975a16'
-                    }}>
-                      {f.estado_sunat}
-                    </span>
-                  </td>
-                  <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-primary, #2d3748)' }}>{f.orden_codigo || '-'}</td>
-                  <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-primary, #2d3748)' }}>{new Date(f.created_at).toLocaleDateString()}</td>
+      <div style={{ position: 'relative' }}>
+        {loading && <LoadingBar />}
+        {!cached && !loadedRef.current ? null : (
+        <div style={{ opacity: loading && loadedRef.current ? 0.5 : 1, transition: 'opacity 0.2s', background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 800 }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-secondary, #f7fafc)', textAlign: 'left' }}>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Numero</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Tipo</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Cliente</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Total</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Estado SUNAT</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Orden</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Fecha</th>
                 </tr>
-              ))}
-              {facturas.length === 0 && !loading && (
-                <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #a0aec0)' }}>No hay facturas emitidas</td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {facturas.map((f) => (
+                  <tr key={f.id} style={{ borderBottom: '1px solid var(--border, #e2e8f0)' }}>
+                    <td style={{ padding: '10px 16px', fontWeight: 600, color: 'var(--text-primary, #2d3748)' }}>{f.numero_completo}</td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{f.tipo}</td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{f.cliente_nombre}</td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>S/ {parseFloat(f.total).toFixed(2)}</td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <span style={{
+                        padding: '3px 8px', borderRadius: 12, fontSize: 12, fontWeight: 600,
+                        background: f.estado_sunat === 'aceptado' ? '#c6f6d5' : f.estado_sunat === 'rechazado' ? '#fed7d7' : '#fefcbf',
+                        color: f.estado_sunat === 'aceptado' ? '#276749' : f.estado_sunat === 'rechazado' ? '#9b2c2c' : '#975a16'
+                      }}>
+                        {f.estado_sunat}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-primary, #2d3748)' }}>{f.orden_codigo || '-'}</td>
+                    <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-primary, #2d3748)' }}>{new Date(f.created_at).toLocaleDateString()}</td>
+                  </tr>
+                ))}
+                {facturas.length === 0 && !loading && (
+                  <tr><td colSpan={7} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #a0aec0)' }}>No hay facturas emitidas</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Pagination page={page} limit={20} total={total} onChange={setPage} />
         </div>
-        <Pagination page={page} limit={20} total={total} onChange={setPage} />
+        )}
       </div>
     </div>
   );

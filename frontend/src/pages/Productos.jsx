@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/SearchBar';
 import Pagination from '../components/Pagination';
 import Modal from '../components/Modal';
+import LoadingBar from '../components/LoadingBar';
 import { exportToCSV } from '../utils/export';
 import { getCache, setCache } from '../utils/pageCache';
 
@@ -16,7 +17,7 @@ export default function Productos() {
   const cached = getCache('productos');
   const [productos, setProductos] = useState(cached?.productos || []);
   const [categorias, setCategorias] = useState(cached?.categorias || []);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(!cached);
   const loadedRef = useRef(!!cached);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -194,49 +195,54 @@ export default function Productos() {
         </form>
       </Modal>
 
-      <div style={{ opacity: loading && loadedRef.current ? 0.5 : 1, transition: 'opacity 0.15s', background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 700 }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-secondary, #f7fafc)', textAlign: 'left' }}>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Codigo</th>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Nombre</th>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Categoria</th>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Precio</th>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Stock</th>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>IGV</th>
-                {isSuperAdmin && <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Accion</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {productos.map((p) => (
-                <tr key={p.id} style={{ borderBottom: '1px solid var(--border, #e2e8f0)' }}>
-                  <td style={{ padding: '10px 16px' }}>{p.codigo}</td>
-                  <td style={{ padding: '10px 16px' }}>{p.nombre}</td>
-                  <td style={{ padding: '10px 16px' }}>{p.categoria_nombre || '-'}</td>
-                  <td style={{ padding: '10px 16px' }}>S/ {parseFloat(p.precio_venta).toFixed(2)}</td>
-                  <td style={{ padding: '10px 16px' }}>
-                    <span style={{ color: p.stock <= p.stock_minimo ? '#e53e3e' : 'var(--text-primary, #2d3748)', fontWeight: p.stock <= p.stock_minimo ? 700 : 400 }}>
-                      {p.stock}
-                    </span>
-                  </td>
-                  <td style={{ padding: '10px 16px' }}>{p.igv ? 'Si' : 'No'}</td>
-                  {isSuperAdmin && (
-                    <td style={{ padding: '10px 16px' }}>
-                      <button onClick={() => openEdit(p)} style={{ padding: '6px 12px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-                        Editar
-                      </button>
-                    </td>
-                  )}
+      <div style={{ position: 'relative' }}>
+        {loading && <LoadingBar />}
+        {!cached && !loadedRef.current ? null : (
+        <div style={{ opacity: loading && loadedRef.current ? 0.5 : 1, transition: 'opacity 0.2s', background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 700 }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-secondary, #f7fafc)', textAlign: 'left' }}>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Codigo</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Nombre</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Categoria</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Precio</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Stock</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>IGV</th>
+                  {isSuperAdmin && <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Accion</th>}
                 </tr>
-              ))}
-              {productos.length === 0 && !loading && (
-                <tr><td colSpan={isSuperAdmin ? 7 : 6} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #a0aec0)' }}>No hay productos registrados</td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {productos.map((p) => (
+                  <tr key={p.id} style={{ borderBottom: '1px solid var(--border, #e2e8f0)' }}>
+                    <td style={{ padding: '10px 16px' }}>{p.codigo}</td>
+                    <td style={{ padding: '10px 16px' }}>{p.nombre}</td>
+                    <td style={{ padding: '10px 16px' }}>{p.categoria_nombre || '-'}</td>
+                    <td style={{ padding: '10px 16px' }}>S/ {parseFloat(p.precio_venta).toFixed(2)}</td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <span style={{ color: p.stock <= p.stock_minimo ? '#e53e3e' : 'var(--text-primary, #2d3748)', fontWeight: p.stock <= p.stock_minimo ? 700 : 400 }}>
+                        {p.stock}
+                      </span>
+                    </td>
+                    <td style={{ padding: '10px 16px' }}>{p.igv ? 'Si' : 'No'}</td>
+                    {isSuperAdmin && (
+                      <td style={{ padding: '10px 16px' }}>
+                        <button onClick={() => openEdit(p)} style={{ padding: '6px 12px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                          Editar
+                        </button>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+                {productos.length === 0 && !loading && (
+                  <tr><td colSpan={isSuperAdmin ? 7 : 6} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #a0aec0)' }}>No hay productos registrados</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Pagination page={page} limit={20} total={total} onChange={setPage} />
         </div>
-        <Pagination page={page} limit={20} total={total} onChange={setPage} />
+        )}
       </div>
     </div>
   );

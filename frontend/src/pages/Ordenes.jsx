@@ -4,16 +4,18 @@ import { useToast } from '../context/ToastContext';
 import SearchBar from '../components/SearchBar';
 import Pagination from '../components/Pagination';
 import Modal from '../components/Modal';
-import { TableSkeleton } from '../components/Skeleton';
+import LoadingBar from '../components/LoadingBar';
 import { exportToCSV } from '../utils/export';
+import { getCache, setCache } from '../utils/pageCache';
 
 export default function Ordenes() {
   const { addToast } = useToast();
-  const [ordenes, setOrdenes] = useState([]);
-  const [productos, setProductos] = useState([]);
-  const [clientes, setClientes] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const loadedRef = useRef(false);
+  const cached = getCache('ordenes');
+  const [ordenes, setOrdenes] = useState(cached?.ordenes || []);
+  const [productos, setProductos] = useState(cached?.productos || []);
+  const [clientes, setClientes] = useState(cached?.clientes || []);
+  const [loading, setLoading] = useState(!cached);
+  const loadedRef = useRef(!!cached);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -38,6 +40,7 @@ export default function Ordenes() {
       setTotal(oRes.data.total);
       setProductos(pRes.data.data || pRes.data);
       setClientes(cRes.data.data || cRes.data);
+      setCache('ordenes', { ordenes: oRes.data.data, total: oRes.data.total, productos: pRes.data.data || pRes.data, clientes: cRes.data.data || cRes.data });
     } catch (err) {
       addToast('Error al cargar ordenes', 'error');
     } finally {
@@ -109,29 +112,29 @@ export default function Ordenes() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ margin: 0, color: 'var(--text-primary, #1a202c)' }}>Ordenes de Compra</h1>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <SearchBar value={search} onChange={setSearch} placeholder="Buscar orden..." />
-          <select value={estadoFilter} onChange={(e) => setEstadoFilter(e.target.value)}
-            style={{ padding: '8px 12px', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
-            <option value="">Todos</option>
-            <option value="pendiente">Pendiente</option>
-            <option value="aprobada">Aprobada</option>
-            <option value="completada">Completada</option>
-            <option value="anulada">Anulada</option>
-          </select>
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', borderLeft: '1px solid var(--border, #e2e8f0)', paddingLeft: 12 }}>
-            <button onClick={() => exportToCSV(ordenes, 'ordenes')} title="Exportar CSV"
-              style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
-              ⬇ CSV
-            </button>
-            <button onClick={() => setShowForm(true)}
-              style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-              + Nueva Orden
-            </button>
-          </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={() => exportToCSV(ordenes, 'ordenes')} title="Exportar CSV"
+            style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
+            ⬇ CSV
+          </button>
+          <button onClick={() => setShowForm(true)}
+            style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+            + Nueva Orden
+          </button>
         </div>
+      </div>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        <SearchBar value={search} onChange={setSearch} placeholder="Buscar orden..." />
+        <select value={estadoFilter} onChange={(e) => setEstadoFilter(e.target.value)}
+          style={{ padding: '8px 12px', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
+          <option value="">Todos</option>
+          <option value="pendiente">Pendiente</option>
+          <option value="aprobada">Aprobada</option>
+          <option value="completada">Completada</option>
+          <option value="anulada">Anulada</option>
+        </select>
       </div>
 
       <Modal open={showForm} onClose={() => { setShowForm(false); setForm({ cliente_id: '', notas: '', items: [{ producto_id: '', cantidad: 1 }] }); }} title="Nueva Orden de Compra" maxWidth={650}>
@@ -228,8 +231,10 @@ export default function Ordenes() {
         </div>
       )}
 
-      {loading ? (loadedRef.current ? <TableSkeleton rows={6} cols={7} /> : <div style={{ height: 400 }} />) : (
-        <div style={{ background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+      <div style={{ position: 'relative' }}>
+        {loading && <LoadingBar />}
+        {!cached && !loadedRef.current ? null : (
+        <div style={{ opacity: loading && loadedRef.current ? 0.5 : 1, transition: 'opacity 0.2s', background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 800 }}>
               <thead>
@@ -275,7 +280,8 @@ export default function Ordenes() {
           </div>
           <Pagination page={page} limit={20} total={total} onChange={setPage} />
         </div>
-      )}
+        )}
+      </div>
 
       <Modal
         open={!!confirmEstado}

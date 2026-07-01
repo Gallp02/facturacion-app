@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/SearchBar';
 import Pagination from '../components/Pagination';
 import Modal from '../components/Modal';
+import LoadingBar from '../components/LoadingBar';
 import { exportToCSV } from '../utils/export';
 import { getCache, setCache } from '../utils/pageCache';
 
@@ -15,7 +16,7 @@ export default function Usuarios() {
   const cached = getCache('usuarios');
   const [usuarios, setUsuarios] = useState(cached?.usuarios || []);
   const [roles, setRoles] = useState(cached?.roles || []);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(!cached);
   const loadedRef = useRef(!!cached);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -173,52 +174,57 @@ export default function Usuarios() {
         </form>
       </Modal>
 
-      <div style={{ opacity: loading && loadedRef.current ? 0.5 : 1, transition: 'opacity 0.15s', background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-        <div style={{ overflowX: 'auto' }}>
-          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 600 }}>
-            <thead>
-              <tr style={{ background: 'var(--bg-secondary, #f7fafc)', textAlign: 'left' }}>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Nombre</th>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Email</th>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Rol</th>
-                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Activo</th>
-                {isSuperAdmin && <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Accion</th>}
-              </tr>
-            </thead>
-            <tbody>
-              {usuarios.map((u) => (
-                <tr key={u.id} style={{ borderBottom: '1px solid var(--border, #e2e8f0)' }}>
-                  <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{u.nombre}</td>
-                  <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{u.email}</td>
-                  <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{u.rol}</td>
-                  <td style={{ padding: '10px 16px' }}>
-                    <span style={{ color: u.activo ? '#38a169' : '#e53e3e', fontWeight: 600 }}>
-                      {u.activo ? 'Si' : 'No'}
-                    </span>
-                  </td>
-                  {isSuperAdmin && (
-                    <td style={{ padding: '10px 16px' }}>
-                      <div style={{ display: 'flex', gap: 6 }}>
-                        <button onClick={() => openEdit(u)} style={{ padding: '6px 12px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-                          Editar
-                        </button>
-                        {u.id !== usuario?.id && (
-                          <button onClick={() => setConfirmDelete({ id: u.id, nombre: u.nombre })} style={{ padding: '6px 12px', background: '#fed7d7', color: '#9b2c2c', border: '1px solid #feb2b2', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-                            Desactivar
-                          </button>
-                        )}
-                      </div>
-                    </td>
-                  )}
+      <div style={{ position: 'relative' }}>
+        {loading && <LoadingBar />}
+        {!cached && !loadedRef.current ? null : (
+        <div style={{ opacity: loading && loadedRef.current ? 0.5 : 1, transition: 'opacity 0.2s', background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+          <div style={{ overflowX: 'auto' }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 600 }}>
+              <thead>
+                <tr style={{ background: 'var(--bg-secondary, #f7fafc)', textAlign: 'left' }}>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Nombre</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Email</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Rol</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Activo</th>
+                  {isSuperAdmin && <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Accion</th>}
                 </tr>
-              ))}
-              {usuarios.length === 0 && !loading && (
-                <tr><td colSpan={isSuperAdmin ? 5 : 4} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #a0aec0)' }}>No hay usuarios registrados</td></tr>
-              )}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {usuarios.map((u) => (
+                  <tr key={u.id} style={{ borderBottom: '1px solid var(--border, #e2e8f0)' }}>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{u.nombre}</td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{u.email}</td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{u.rol}</td>
+                    <td style={{ padding: '10px 16px' }}>
+                      <span style={{ color: u.activo ? '#38a169' : '#e53e3e', fontWeight: 600 }}>
+                        {u.activo ? 'Si' : 'No'}
+                      </span>
+                    </td>
+                    {isSuperAdmin && (
+                      <td style={{ padding: '10px 16px' }}>
+                        <div style={{ display: 'flex', gap: 6 }}>
+                          <button onClick={() => openEdit(u)} style={{ padding: '6px 12px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                            Editar
+                          </button>
+                          {u.id !== usuario?.id && (
+                            <button onClick={() => setConfirmDelete({ id: u.id, nombre: u.nombre })} style={{ padding: '6px 12px', background: '#fed7d7', color: '#9b2c2c', border: '1px solid #feb2b2', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                              Desactivar
+                            </button>
+                          )}
+                        </div>
+                      </td>
+                    )}
+                  </tr>
+                ))}
+                {usuarios.length === 0 && !loading && (
+                  <tr><td colSpan={isSuperAdmin ? 5 : 4} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #a0aec0)' }}>No hay usuarios registrados</td></tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+          <Pagination page={page} limit={20} total={total} onChange={setPage} />
         </div>
-        <Pagination page={page} limit={20} total={total} onChange={setPage} />
+        )}
       </div>
 
       <Modal
