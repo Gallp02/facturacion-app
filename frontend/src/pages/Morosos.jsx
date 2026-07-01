@@ -391,7 +391,7 @@ export default function Morosos() {
           <div>
             <p style={{ margin: '0 0 12px' }}>Confirmas que la cuota <strong>#{confirmPago.numero}</strong> fue pagada?</p>
             <p style={{ margin: 0, fontSize: 13, color: '#718096' }}>
-              Monto: <strong style={{ color: '#2d3748' }}>S/ {confirmPago.monto.toFixed(2)}</strong>
+              Monto: <strong style={{ color: '#2d3748' }}>S/ {parseFloat(confirmPago.monto).toFixed(2)}</strong>
             </p>
           </div>
         )}
