@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ordenesAPI, productosAPI, clientesAPI } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import SearchBar from '../components/SearchBar';
@@ -13,6 +13,7 @@ export default function Ordenes() {
   const [productos, setProductos] = useState([]);
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const loadedRef = useRef(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -24,7 +25,7 @@ export default function Ordenes() {
   const [form, setForm] = useState({ cliente_id: '', notas: '', items: [{ producto_id: '', cantidad: 1 }] });
 
   const loadData = useCallback(async (p, s, est) => {
-    setLoading(true);
+    if (loadedRef.current) setLoading(true);
     try {
       const params = { page: p, limit: 20, search: s };
       if (est) params.estado = est;
@@ -40,6 +41,7 @@ export default function Ordenes() {
     } catch (err) {
       addToast('Error al cargar ordenes', 'error');
     } finally {
+      loadedRef.current = true;
       setLoading(false);
     }
   }, []);
@@ -119,14 +121,16 @@ export default function Ordenes() {
             <option value="completada">Completada</option>
             <option value="anulada">Anulada</option>
           </select>
-          <button onClick={() => exportToCSV(ordenes, 'ordenes')} title="Exportar CSV"
-            style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
-            ⬇ CSV
-          </button>
-          <button onClick={() => setShowForm(true)}
-            style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-            + Nueva Orden
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', borderLeft: '1px solid var(--border, #e2e8f0)', paddingLeft: 12 }}>
+            <button onClick={() => exportToCSV(ordenes, 'ordenes')} title="Exportar CSV"
+              style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
+              ⬇ CSV
+            </button>
+            <button onClick={() => setShowForm(true)}
+              style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              + Nueva Orden
+            </button>
+          </div>
         </div>
       </div>
 
@@ -224,7 +228,7 @@ export default function Ordenes() {
         </div>
       )}
 
-      {loading ? <TableSkeleton rows={6} cols={7} /> : (
+      {loading ? (loadedRef.current ? <TableSkeleton rows={6} cols={7} /> : <div style={{ height: 400 }} />) : (
         <div style={{ background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 800 }}>

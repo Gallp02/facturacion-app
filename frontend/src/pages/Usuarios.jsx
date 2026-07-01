@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { usuariosAPI } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -15,6 +15,7 @@ export default function Usuarios() {
   const [usuarios, setUsuarios] = useState([]);
   const [roles, setRoles] = useState([]);
   const [loading, setLoading] = useState(true);
+  const loadedRef = useRef(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -25,7 +26,7 @@ export default function Usuarios() {
   const [form, setForm] = useState({ nombre: '', email: '', password: '', telefono: '', rol_id: '' });
 
   const loadData = useCallback(async (p, s) => {
-    setLoading(true);
+    if (loadedRef.current) setLoading(true);
     try {
       const [uRes, rRes] = await Promise.all([
         usuariosAPI.getAll({ page: p, limit: 20, search: s }),
@@ -37,6 +38,7 @@ export default function Usuarios() {
     } catch (err) {
       addToast('Error al cargar usuarios', 'error');
     } finally {
+      loadedRef.current = true;
       setLoading(false);
     }
   }, []);
@@ -112,15 +114,17 @@ export default function Usuarios() {
         <h1 style={{ margin: 0, color: 'var(--text-primary, #1a202c)' }}>Usuarios</h1>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <SearchBar value={search} onChange={setSearch} placeholder="Buscar usuario..." />
-          <button onClick={() => exportToCSV(usuarios, 'usuarios')} title="Exportar CSV"
-            style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
-            ⬇ CSV
-          </button>
-          {isSuperAdmin && (
-            <button onClick={openCreate} style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-              + Nuevo Usuario
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', borderLeft: '1px solid var(--border, #e2e8f0)', paddingLeft: 12 }}>
+            <button onClick={() => exportToCSV(usuarios, 'usuarios')} title="Exportar CSV"
+              style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
+              ⬇ CSV
             </button>
-          )}
+            {isSuperAdmin && (
+              <button onClick={openCreate} style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+                + Nuevo Usuario
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -167,7 +171,7 @@ export default function Usuarios() {
         </form>
       </Modal>
 
-      {loading ? <TableSkeleton rows={6} cols={5} /> : (
+      {loading ? (loadedRef.current ? <TableSkeleton rows={6} cols={5} /> : <div style={{ height: 400 }} />) : (
         <div style={{ background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 600 }}>

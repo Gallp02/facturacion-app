@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { empresasAPI } from '../services/api';
 import { useEmpresa } from '../context/EmpresaContext';
 import { useToast } from '../context/ToastContext';
@@ -7,6 +7,7 @@ import Modal from '../components/Modal';
 export default function Empresas() {
   const [list, setList] = useState([]);
   const [loading, setLoading] = useState(true);
+  const loadedRef = useRef(false);
   const [editando, setEditando] = useState(null);
   const [showModal, setShowModal] = useState(false);
   const [form, setForm] = useState({});
@@ -17,12 +18,13 @@ export default function Empresas() {
 
   const load = async () => {
     try {
-      setLoading(true);
+      if (loadedRef.current) setLoading(true);
       const res = await empresasAPI.getAll();
       setList(res.data);
     } catch {
       addToast('Error al cargar empresas', 'error');
     } finally {
+      loadedRef.current = true;
       setLoading(false);
     }
   };
@@ -57,8 +59,6 @@ export default function Empresas() {
     }
   };
 
-  if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary)' }}>Cargando...</div>;
-
   const styles = {
     container: {
       background: 'var(--card-bg, white)', borderRadius: 12, padding: 24,
@@ -73,6 +73,11 @@ export default function Empresas() {
 
   return (
     <div>
+      {loading && loadedRef.current && (
+        <div style={{ position: 'fixed', inset: 0, background: 'rgba(255,255,255,0.5)', zIndex: 999, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+          <div style={{ padding: '12px 24px', background: 'var(--card-bg, white)', borderRadius: 8, boxShadow: '0 2px 8px rgba(0,0,0,0.1)', fontSize: 14 }}>Cargando...</div>
+        </div>
+      )}
       <h2 style={{ marginBottom: 16, color: 'var(--text-primary, #1a202c)' }}>Gestion de Empresas</h2>
 
       <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 16 }}>

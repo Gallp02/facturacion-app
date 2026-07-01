@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { auditLogAPI } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import SearchBar from '../components/SearchBar';
@@ -11,13 +11,14 @@ export default function AuditLog() {
   const [logs, setLogs] = useState([]);
   const [resumen, setResumen] = useState(null);
   const [loading, setLoading] = useState(true);
+  const loadedRef = useRef(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
   const [tab, setTab] = useState('lista');
 
   const loadData = useCallback(async (p, s) => {
-    setLoading(true);
+    if (loadedRef.current) setLoading(true);
     try {
       const params = { page: p, limit: 30, search: s };
       const [lRes, rRes] = await Promise.all([
@@ -30,6 +31,7 @@ export default function AuditLog() {
     } catch (err) {
       addToast('Error al cargar auditoria', 'error');
     } finally {
+      loadedRef.current = true;
       setLoading(false);
     }
   }, []);
@@ -52,10 +54,12 @@ export default function AuditLog() {
         <h1 style={{ margin: 0, color: 'var(--text-primary, #1a202c)' }}>Auditoria</h1>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <SearchBar value={search} onChange={setSearch} placeholder="Buscar en auditoria..." />
-          <button onClick={() => exportToCSV(logs, 'auditoria')} title="Exportar CSV"
-            style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
-            ⬇ CSV
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', borderLeft: '1px solid var(--border, #e2e8f0)', paddingLeft: 12 }}>
+            <button onClick={() => exportToCSV(logs, 'auditoria')} title="Exportar CSV"
+              style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
+              ⬇ CSV
+            </button>
+          </div>
         </div>
       </div>
 
@@ -100,7 +104,7 @@ export default function AuditLog() {
         </div>
       )}
 
-      {loading ? <TableSkeleton rows={6} cols={5} /> : (
+      {loading ? (loadedRef.current ? <TableSkeleton rows={6} cols={5} /> : <div style={{ height: 400 }} />) : (
         <div style={{ background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 700 }}>

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { clientesAPI } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -14,6 +14,7 @@ export default function Clientes() {
   const isSuperAdmin = usuario?.rol === 'super_admin';
   const [clientes, setClientes] = useState([]);
   const [loading, setLoading] = useState(true);
+  const loadedRef = useRef(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -25,7 +26,7 @@ export default function Clientes() {
   });
 
   const loadData = useCallback(async (p, s) => {
-    setLoading(true);
+    if (loadedRef.current) setLoading(true);
     try {
       const res = await clientesAPI.getAll({ page: p, limit: 20, search: s });
       setClientes(res.data.data);
@@ -33,6 +34,7 @@ export default function Clientes() {
     } catch (err) {
       addToast('Error al cargar clientes', 'error');
     } finally {
+      loadedRef.current = true;
       setLoading(false);
     }
   }, []);
@@ -96,13 +98,15 @@ export default function Clientes() {
         <h1 style={{ margin: 0, color: 'var(--text-primary, #1a202c)' }}>Clientes</h1>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <SearchBar value={search} onChange={setSearch} placeholder="Buscar cliente..." />
-          <button onClick={() => exportToCSV(clientes, 'clientes')} title="Exportar CSV"
-            style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
-            ⬇ CSV
-          </button>
-          <button onClick={openCreate} style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-            + Nuevo Cliente
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', borderLeft: '1px solid var(--border, #e2e8f0)', paddingLeft: 12 }}>
+            <button onClick={() => exportToCSV(clientes, 'clientes')} title="Exportar CSV"
+              style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
+              ⬇ CSV
+            </button>
+            <button onClick={openCreate} style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              + Nuevo Cliente
+            </button>
+          </div>
         </div>
       </div>
 
@@ -153,7 +157,7 @@ export default function Clientes() {
         </form>
       </Modal>
 
-      {loading ? <TableSkeleton rows={6} cols={6} /> : (
+      {loading ? (loadedRef.current ? <TableSkeleton rows={6} cols={6} /> : <div style={{ height: 400 }} />) : (
         <div style={{ background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 700 }}>

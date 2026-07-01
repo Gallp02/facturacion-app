@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { productosAPI } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -16,6 +16,7 @@ export default function Productos() {
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
   const [loading, setLoading] = useState(true);
+  const loadedRef = useRef(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -31,7 +32,7 @@ export default function Productos() {
   });
 
   const loadData = useCallback(async (p = page, s = search) => {
-    setLoading(true);
+    if (loadedRef.current) setLoading(true);
     try {
       const [pRes, cRes] = await Promise.all([
         productosAPI.getAll({ page: p, limit: 20, search: s }),
@@ -43,6 +44,7 @@ export default function Productos() {
     } catch (err) {
       addToast('Error al cargar productos', 'error');
     } finally {
+      loadedRef.current = true;
       setLoading(false);
     }
   }, [page, search]);
@@ -108,13 +110,15 @@ export default function Productos() {
         <h1 style={{ margin: 0, color: 'var(--text-primary, #1a202c)' }}>Productos</h1>
         <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
           <SearchBar value={search} onChange={setSearch} placeholder="Buscar producto..." />
-          <button onClick={() => exportToCSV(productos, 'productos')} title="Exportar CSV"
-            style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
-            ⬇ CSV
-          </button>
-          <button onClick={openCreate} style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-            + Nuevo Producto
-          </button>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', borderLeft: '1px solid var(--border, #e2e8f0)', paddingLeft: 12 }}>
+            <button onClick={() => exportToCSV(productos, 'productos')} title="Exportar CSV"
+              style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
+              ⬇ CSV
+            </button>
+            <button onClick={openCreate} style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              + Nuevo Producto
+            </button>
+          </div>
         </div>
       </div>
 
@@ -180,7 +184,7 @@ export default function Productos() {
         </form>
       </Modal>
 
-      {loading ? <TableSkeleton rows={6} cols={7} /> : (
+      {loading ? (loadedRef.current ? <TableSkeleton rows={6} cols={7} /> : <div style={{ height: 400 }} />) : (
         <div style={{ background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 700 }}>

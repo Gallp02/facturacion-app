@@ -1,4 +1,13 @@
+import { useEffect } from 'react';
+
 export default function Modal({ open, onClose, title, children, onConfirm, confirmText = 'Confirmar', confirmColor = '#e53e3e', loading = false, maxWidth = 420 }) {
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e) => { if (e.key === 'Escape') onClose(); };
+    window.addEventListener('keydown', handler);
+    return () => window.removeEventListener('keydown', handler);
+  }, [open, onClose]);
+
   if (!open) return null;
   return (
     <div

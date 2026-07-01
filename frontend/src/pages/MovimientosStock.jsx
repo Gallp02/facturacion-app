@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { movimientosStockAPI, productosAPI } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
@@ -16,6 +16,7 @@ export default function MovimientosStock() {
   const [movimientos, setMovimientos] = useState([]);
   const [productos, setProductos] = useState([]);
   const [loading, setLoading] = useState(true);
+  const loadedRef = useRef(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -26,7 +27,7 @@ export default function MovimientosStock() {
   const [form, setForm] = useState({ producto_id: '', tipo: 'entrada', cantidad: 1, referencia: '' });
 
   const loadData = useCallback(async (p, s, t) => {
-    setLoading(true);
+    if (loadedRef.current) setLoading(true);
     try {
       const params = { page: p, limit: 20, search: s };
       if (t) params.tipo = t;
@@ -40,6 +41,7 @@ export default function MovimientosStock() {
     } catch (err) {
       addToast('Error al cargar movimientos', 'error');
     } finally {
+      loadedRef.current = true;
       setLoading(false);
     }
   }, []);
@@ -92,16 +94,18 @@ export default function MovimientosStock() {
             <option value="salida">Salidas</option>
             <option value="ajuste">Ajustes</option>
           </select>
-          <button onClick={() => exportToCSV(movimientos, 'movimientos-stock')} title="Exportar CSV"
-            style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
-            ⬇ CSV
-          </button>
-          {canManage && (
-            <button onClick={() => { setShowForm(true); setForm({ producto_id: '', tipo: 'entrada', cantidad: 1, referencia: '' }); }}
-              style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-              + Nuevo Movimiento
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', borderLeft: '1px solid var(--border, #e2e8f0)', paddingLeft: 12 }}>
+            <button onClick={() => exportToCSV(movimientos, 'movimientos-stock')} title="Exportar CSV"
+              style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
+              ⬇ CSV
             </button>
-          )}
+            {canManage && (
+              <button onClick={() => { setShowForm(true); setForm({ producto_id: '', tipo: 'entrada', cantidad: 1, referencia: '' }); }}
+                style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+                + Nuevo Movimiento
+              </button>
+            )}
+          </div>
         </div>
       </div>
 
@@ -152,7 +156,7 @@ export default function MovimientosStock() {
         </form>
       </Modal>
 
-      {loading ? <TableSkeleton rows={6} cols={7} /> : (
+      {loading ? (loadedRef.current ? <TableSkeleton rows={6} cols={7} /> : <div style={{ height: 400 }} />) : (
         <div style={{ background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 800 }}>
