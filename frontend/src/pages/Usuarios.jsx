@@ -14,7 +14,7 @@ export default function Usuarios() {
   const isSuperAdmin = usuario?.rol === 'super_admin';
   const [usuarios, setUsuarios] = useState([]);
   const [roles, setRoles] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const loadedRef = useRef(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -110,22 +110,22 @@ export default function Usuarios() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ margin: 0, color: 'var(--text-primary, #1a202c)' }}>Usuarios</h1>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <SearchBar value={search} onChange={setSearch} placeholder="Buscar usuario..." />
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', borderLeft: '1px solid var(--border, #e2e8f0)', paddingLeft: 12 }}>
-            <button onClick={() => exportToCSV(usuarios, 'usuarios')} title="Exportar CSV"
-              style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
-              ⬇ CSV
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={() => exportToCSV(usuarios, 'usuarios')} title="Exportar CSV"
+            style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
+            ⬇ CSV
+          </button>
+          {isSuperAdmin && (
+            <button onClick={openCreate} style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+              + Nuevo Usuario
             </button>
-            {isSuperAdmin && (
-              <button onClick={openCreate} style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-                + Nuevo Usuario
-              </button>
-            )}
-          </div>
+          )}
         </div>
+      </div>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        <SearchBar value={search} onChange={setSearch} placeholder="Buscar usuario..." />
       </div>
 
       <Modal open={showForm && isSuperAdmin} onClose={closeForm} title={editing ? 'Editar Usuario' : 'Nuevo Usuario'} maxWidth={500}>
@@ -171,7 +171,7 @@ export default function Usuarios() {
         </form>
       </Modal>
 
-      {loading ? (loadedRef.current ? <TableSkeleton rows={6} cols={5} /> : <div style={{ height: 400 }} />) : (
+      {loading ? <TableSkeleton rows={6} cols={5} /> : (
         <div style={{ background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 600 }}>

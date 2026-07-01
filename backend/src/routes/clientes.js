@@ -10,8 +10,8 @@ router.get('/', async (req, res) => {
   try {
     const { page = 1, limit = 50, search = '' } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    const searchWhere = search ? 'WHERE c.nombre LIKE ? OR c.numero_documento LIKE ? OR c.email LIKE ?' : '';
-    const params = search ? [`%${search}%`, `%${search}%`, `%${search}%`] : [];
+    const searchWhere = search ? 'WHERE c.nombre LIKE ? OR c.apodo LIKE ? OR c.numero_documento LIKE ? OR c.email LIKE ?' : '';
+    const params = search ? [`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`] : [];
 
     const [count] = await pool.query(`SELECT COUNT(*) as total FROM clientes c ${searchWhere}`, params);
     const [rows] = await pool.query(
@@ -36,11 +36,11 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', auditMiddleware('crear', 'clientes'), async (req, res) => {
   try {
-    const { tipo_documento, numero_documento, nombre, email, telefono, direccion } = req.body;
+    const { tipo_documento, numero_documento, nombre, apodo, email, telefono, direccion } = req.body;
     if (!numero_documento || !nombre) return res.status(400).json({ error: 'Numero documento y nombre requeridos' });
     const [result] = await pool.query(
-      'INSERT INTO clientes (tipo_documento, numero_documento, nombre, email, telefono, direccion) VALUES (?, ?, ?, ?, ?, ?)',
-      [tipo_documento || 'DNI', numero_documento, nombre, email, telefono, direccion]
+      'INSERT INTO clientes (tipo_documento, numero_documento, nombre, apodo, email, telefono, direccion) VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [tipo_documento || 'DNI', numero_documento, nombre, apodo || null, email, telefono, direccion]
     );
     res.status(201).json({ id: result.insertId, mensaje: 'Cliente creado' });
   } catch (error) {
@@ -51,10 +51,10 @@ router.post('/', auditMiddleware('crear', 'clientes'), async (req, res) => {
 
 router.put('/:id', auditMiddleware('actualizar', 'clientes'), async (req, res) => {
   try {
-    const { tipo_documento, numero_documento, nombre, email, telefono, direccion } = req.body;
+    const { tipo_documento, numero_documento, nombre, apodo, email, telefono, direccion } = req.body;
     await pool.query(
-      'UPDATE clientes SET tipo_documento=?, numero_documento=?, nombre=?, email=?, telefono=?, direccion=? WHERE id=?',
-      [tipo_documento, numero_documento, nombre, email, telefono, direccion, req.params.id]
+      'UPDATE clientes SET tipo_documento=?, numero_documento=?, nombre=?, apodo=?, email=?, telefono=?, direccion=? WHERE id=?',
+      [tipo_documento, numero_documento, nombre, apodo || null, email, telefono, direccion, req.params.id]
     );
     res.json({ mensaje: 'Cliente actualizado' });
   } catch (error) {

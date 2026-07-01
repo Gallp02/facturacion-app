@@ -13,7 +13,7 @@ export default function Clientes() {
   const { usuario } = useAuth();
   const isSuperAdmin = usuario?.rol === 'super_admin';
   const [clientes, setClientes] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const loadedRef = useRef(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
@@ -22,7 +22,7 @@ export default function Clientes() {
   const [editing, setEditing] = useState(null);
   const [saving, setSaving] = useState(false);
   const [form, setForm] = useState({
-    tipo_documento: 'DNI', numero_documento: '', nombre: '', email: '', telefono: '', direccion: ''
+    tipo_documento: 'DNI', numero_documento: '', nombre: '', apodo: '', email: '', telefono: '', direccion: ''
   });
 
   const loadData = useCallback(async (p, s) => {
@@ -74,7 +74,7 @@ export default function Clientes() {
   const openEdit = (c) => {
     setForm({
       tipo_documento: c.tipo_documento, numero_documento: c.numero_documento,
-      nombre: c.nombre, email: c.email || '', telefono: c.telefono || '', direccion: c.direccion || ''
+      nombre: c.nombre, apodo: c.apodo || '', email: c.email || '', telefono: c.telefono || '', direccion: c.direccion || ''
     });
     setEditing(c.id);
     setShowForm(true);
@@ -83,31 +83,31 @@ export default function Clientes() {
   const openCreate = () => {
     setShowForm(true);
     setEditing(null);
-    setForm({ tipo_documento: 'DNI', numero_documento: '', nombre: '', email: '', telefono: '', direccion: '' });
+    setForm({ tipo_documento: 'DNI', numero_documento: '', nombre: '', apodo: '', email: '', telefono: '', direccion: '' });
   };
 
   const closeForm = () => {
     setShowForm(false);
     setEditing(null);
-    setForm({ tipo_documento: 'DNI', numero_documento: '', nombre: '', email: '', telefono: '', direccion: '' });
+    setForm({ tipo_documento: 'DNI', numero_documento: '', nombre: '', apodo: '', email: '', telefono: '', direccion: '' });
   };
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ margin: 0, color: 'var(--text-primary, #1a202c)' }}>Clientes</h1>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <SearchBar value={search} onChange={setSearch} placeholder="Buscar cliente..." />
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', borderLeft: '1px solid var(--border, #e2e8f0)', paddingLeft: 12 }}>
-            <button onClick={() => exportToCSV(clientes, 'clientes')} title="Exportar CSV"
-              style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
-              ⬇ CSV
-            </button>
-            <button onClick={openCreate} style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-              + Nuevo Cliente
-            </button>
-          </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={() => exportToCSV(clientes, 'clientes')} title="Exportar CSV"
+            style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
+            ⬇ CSV
+          </button>
+          <button onClick={openCreate} style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+            + Nuevo Cliente
+          </button>
         </div>
+      </div>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        <SearchBar value={search} onChange={setSearch} placeholder="Buscar cliente..." />
       </div>
 
       <Modal open={showForm} onClose={closeForm} title={editing ? 'Editar Cliente' : 'Nuevo Cliente'} maxWidth={600}>
@@ -128,6 +128,11 @@ export default function Clientes() {
             <div>
               <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Nombre / Razon Social *</label>
               <input value={form.nombre} onChange={(e) => setForm({ ...form, nombre: e.target.value })} required
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Apodo</label>
+              <input value={form.apodo} onChange={(e) => setForm({ ...form, apodo: e.target.value })} placeholder="Ej: Juanito, La Casa S.A."
                 style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
             </div>
             <div>
@@ -157,7 +162,7 @@ export default function Clientes() {
         </form>
       </Modal>
 
-      {loading ? (loadedRef.current ? <TableSkeleton rows={6} cols={6} /> : <div style={{ height: 400 }} />) : (
+      {loading ? <TableSkeleton rows={6} cols={6} /> : (
         <div style={{ background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 700 }}>
@@ -166,6 +171,7 @@ export default function Clientes() {
                   <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Doc.</th>
                   <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Numero</th>
                   <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Nombre</th>
+                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Apodo</th>
                   <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Email</th>
                   <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Telefono</th>
                   {isSuperAdmin && <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Accion</th>}
@@ -177,6 +183,7 @@ export default function Clientes() {
                     <td style={{ padding: '10px 16px' }}>{c.tipo_documento}</td>
                     <td style={{ padding: '10px 16px' }}>{c.numero_documento}</td>
                     <td style={{ padding: '10px 16px' }}>{c.nombre}</td>
+                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary, #718096)', fontSize: 13 }}>{c.apodo || '-'}</td>
                     <td style={{ padding: '10px 16px' }}>{c.email || '-'}</td>
                     <td style={{ padding: '10px 16px' }}>{c.telefono || '-'}</td>
                     {isSuperAdmin && (
@@ -188,8 +195,8 @@ export default function Clientes() {
                     )}
                   </tr>
                 ))}
-                {clientes.length === 0 && !loading && (
-                  <tr><td colSpan={isSuperAdmin ? 6 : 5} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #a0aec0)' }}>No hay clientes registrados</td></tr>
+                  {clientes.length === 0 && !loading && (
+                  <tr><td colSpan={isSuperAdmin ? 7 : 6} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #a0aec0)' }}>No hay clientes registrados</td></tr>
                 )}
               </tbody>
             </table>

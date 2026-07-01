@@ -15,11 +15,12 @@ export default function Productos() {
 
   const [productos, setProductos] = useState([]);
   const [categorias, setCategorias] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const loadedRef = useRef(false);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
+  const [filtroCategoria, setFiltroCategoria] = useState('');
 
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -31,11 +32,13 @@ export default function Productos() {
     precio_venta: '', precio_compra: '', stock: '0', stock_minimo: '5', igv: true
   });
 
-  const loadData = useCallback(async (p = page, s = search) => {
+  const loadData = useCallback(async (p = page, s = search, f = filtroCategoria) => {
     if (loadedRef.current) setLoading(true);
     try {
+      const params = { page: p, limit: 20, search: s };
+      if (f) params.categoria_id = f;
       const [pRes, cRes] = await Promise.all([
-        productosAPI.getAll({ page: p, limit: 20, search: s }),
+        productosAPI.getAll(params),
         productosAPI.getCategorias()
       ]);
       setProductos(pRes.data.data);
@@ -47,12 +50,12 @@ export default function Productos() {
       loadedRef.current = true;
       setLoading(false);
     }
-  }, [page, search]);
+  }, [page, search, filtroCategoria]);
 
-  useEffect(() => { loadData(); }, [page]);
+  useEffect(() => { loadData(); }, [page, filtroCategoria]);
 
   useEffect(() => {
-    const timer = setTimeout(() => { setPage(1); loadData(1, search); }, 400);
+    const timer = setTimeout(() => { setPage(1); loadData(1, search, filtroCategoria); }, 400);
     return () => clearTimeout(timer);
   }, [search]);
 
@@ -106,20 +109,25 @@ export default function Productos() {
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12, flexWrap: 'wrap', gap: 12 }}>
         <h1 style={{ margin: 0, color: 'var(--text-primary, #1a202c)' }}>Productos</h1>
-        <div style={{ display: 'flex', gap: 12, alignItems: 'center', flexWrap: 'wrap' }}>
-          <SearchBar value={search} onChange={setSearch} placeholder="Buscar producto..." />
-          <div style={{ display: 'flex', gap: 8, alignItems: 'center', borderLeft: '1px solid var(--border, #e2e8f0)', paddingLeft: 12 }}>
-            <button onClick={() => exportToCSV(productos, 'productos')} title="Exportar CSV"
-              style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
-              ⬇ CSV
-            </button>
-            <button onClick={openCreate} style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
-              + Nuevo Producto
-            </button>
-          </div>
+        <div style={{ display: 'flex', gap: 8, alignItems: 'center' }}>
+          <button onClick={() => exportToCSV(productos, 'productos')} title="Exportar CSV"
+            style={{ padding: '8px 14px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 13 }}>
+            ⬇ CSV
+          </button>
+          <button onClick={openCreate} style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
+            + Nuevo Producto
+          </button>
         </div>
+      </div>
+      <div style={{ display: 'flex', gap: 12, marginBottom: 20, flexWrap: 'wrap', alignItems: 'center' }}>
+        <SearchBar value={search} onChange={setSearch} placeholder="Buscar producto..." />
+        <select value={filtroCategoria} onChange={(e) => setFiltroCategoria(e.target.value)}
+          style={{ padding: '8px 12px', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)', cursor: 'pointer' }}>
+          <option value="">Todas las categorias</option>
+          {categorias.map(c => <option key={c.id} value={c.id}>{c.nombre}</option>)}
+        </select>
       </div>
 
       <Modal open={showForm} onClose={closeForm} title={editing ? 'Editar Producto' : 'Nuevo Producto'} maxWidth={600}>
@@ -184,7 +192,7 @@ export default function Productos() {
         </form>
       </Modal>
 
-      {loading ? (loadedRef.current ? <TableSkeleton rows={6} cols={7} /> : <div style={{ height: 400 }} />) : (
+      {loading ? <TableSkeleton rows={6} cols={7} /> : (
         <div style={{ background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 700 }}>
