@@ -3,239 +3,321 @@ const path = require('path');
 const { numeroALetras } = require('./numeroALetras');
 
 function generateFacturaPDF(factura, items) {
-  const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: false });
-  const left = 40;
-  const right = 555;
-  const contentW = right - left;
-  const pageBottom = 765;
+  const doc = new PDFDocument({ size: 'A4', margin: 0, bufferPages: false });
+  const L = 26;
+  const R = 569;
+  const CW = R - L;
+  const PG = 800;
 
-  let y = 35;
+  // colors from sample PDF
+  const C_TEAL = '#212721';
+  const C_WHITE = '#FFFFFF';
+  const C_BLACK = '#000000';
+  const C_GRAY_BAR = '#A4A4A4';
+  const C_GRAY_CELL = '#D5D5D5';
+  const C_TABLE_HDR = '#007599';
+  const C_ROW1 = '#F5F5F5';
+  const C_ROW2 = '#E6E6E6';
+  const C_ROW3 = '#DEDEDE';
+  const C_GREEN = '#5BAA01';
+  const C_GRID = '#DEDEDE';
 
-  // ===================== HEADER =====================
+  function addPageIfNeeded(needed, bottom) {
+    if (bottom + needed > PG) { doc.addPage(); return L; }
+    return bottom;
+  }
+
+  let y = 0;
+
+  // ===================== PAGE BACKGROUND =====================
+  doc.rect(L, 6, CW, 812 - 6).fill(C_WHITE);
+
+  // ===================== TOP RIGHT HEADER =====================
+  doc.fillColor(C_TEAL);
+  doc.fontSize(10.8).font('Helvetica');
+  doc.text(factura.empresa_ruc || '', 388, 43);
+
+  doc.fontSize(10.8).font('Helvetica-Bold');
+  doc.text('FACTURA ELECTRÓNICA', 375, 64);
+
+  doc.fontSize(10.8).font('Helvetica');
+  doc.text(factura.numero_completo, 403, 86);
+
+  // ===================== LOGO / LEFT COMPANY INFO =====================
+  let logoRight = 109;
   try {
     const logoPath = path.join(__dirname, '../../../frontend/public/logo.png');
-    doc.image(logoPath, left, y, { width: 85, height: 85 });
+    doc.image(logoPath, L, 30, { width: 75, height: 75 });
+    logoRight = L + 75 + 8;
   } catch (e) { }
 
-  doc.fillColor('#000');
-  doc.fontSize(13).font('Helvetica-Bold');
-  doc.text('FACTURA ELECTRÓNICA', right - 200, y, { width: 200, align: 'right' });
-  doc.fontSize(11).font('Helvetica');
-  doc.text(factura.numero_completo, right - 200, y + 20, { width: 200, align: 'right' });
-  if (factura.yape) {
-    doc.fontSize(8);
-    doc.text(`YAPE: ${factura.yape}`, right - 200, y + 42, { width: 200, align: 'right' });
-  }
+  doc.fillColor(C_TEAL);
+  doc.fontSize(9).font('Helvetica-Bold');
+  doc.text(factura.empresa_razon_social || '', logoRight, 77);
 
-  const companyY = y + 95;
-  doc.fillColor('#000').fontSize(10).font('Helvetica-Bold');
-  doc.text(factura.empresa_razon_social || '', left, companyY);
-
-  let cy = companyY + 16;
-  doc.fillColor('#000').fontSize(9).font('Helvetica');
-  doc.text(`R.U.C. ${factura.empresa_ruc || ''}`, left, cy); cy += 13;
+  doc.fontSize(7.2).font('Helvetica');
+  let ly = 91;
   if (factura.empresa_direccion) {
-    const dir = factura.empresa_direccion;
-    const h = doc.heightOfString(dir, { width: contentW * 0.55 });
-    doc.text(dir, left, cy, { width: contentW * 0.55 });
-    cy += Math.max(h + 3, 13);
+    doc.text(factura.empresa_direccion, logoRight, ly);
+    ly += 9;
   }
-  if (factura.telefono) { doc.text(`Tel: ${factura.telefono}`, left, cy); cy += 12; }
-  if (factura.email) { doc.text(factura.email, left, cy); cy += 12; }
-  if (factura.web) { doc.text(factura.web, left, cy); cy += 12; }
 
-  y = Math.max(companyY + 110, cy) + 4;
+  let telefonoText = '';
+  if (factura.telefono) telefonoText += `Teléf: ${factura.telefono}`;
+  if (telefonoText) { doc.text(telefonoText, logoRight, ly); ly += 9; }
 
-  // ===================== SEPARATOR 1 =====================
-  if (y + 20 > pageBottom) { doc.addPage(); y = 40; }
-  doc.strokeColor('#aaaaaa').moveTo(left, y).lineTo(right, y).stroke();
-  y += 10;
+  if (factura.email) { doc.text(`Email: ${factura.email}`, logoRight, ly); ly += 9; }
+  if (factura.web) { doc.text(factura.web, logoRight, ly); ly += 9; }
 
-  // ===================== CLIENT + INVOICE DATA =====================
-  const clientStartY = y;
-  doc.fillColor('#000').fontSize(9).font('Helvetica-Bold');
-  doc.text('DATOS DEL CLIENTE', left, y); y += 16;
-  doc.fontSize(8.5).font('Helvetica');
-  const cliLabelW = 75;
-  doc.fillColor('#000');
-  doc.text('Razón Social:', left, y, { width: cliLabelW, continued: true });
-  doc.text(factura.cliente_nombre || '', { width: contentW * 0.5 - cliLabelW });
-  y += 13;
-  const docTypeLabel = factura.tipo_documento === 'RUC' ? 'R.U.C.:' : 'D.N.I.:';
-  doc.fillColor('#000');
-  doc.text(docTypeLabel, left, y, { width: cliLabelW, continued: true });
-  doc.text(factura.numero_documento || '', { width: contentW * 0.5 - cliLabelW });
-  y += 13;
+  y = Math.max(ly + 4, 139);
+
+  // ===================== GRAY BAR 1 - CLIENT DATA =====================
+  y = addPageIfNeeded(50, y);
+  doc.rect(L, 139, CW, 33).fill(C_GRAY_BAR);
+  doc.fillColor(C_TEAL);
+  doc.fontSize(7.8).font('Helvetica-Bold');
+  doc.text('RAZÓN SOCIAL:', 30, 150);
+  doc.font('Helvetica');
+  doc.text(factura.cliente_nombre || '', 89, 150);
+
+  doc.font('Helvetica-Bold');
+  doc.text('R.U.C.:', 30, 160);
+  doc.font('Helvetica');
+  doc.text(factura.numero_documento || '', 53, 160);
+
+  doc.font('Helvetica-Bold');
+  doc.text('DIRECCIÓN:', 30, 169);
+  doc.font('Helvetica');
   if (factura.cliente_direccion) {
-    const dir = `Dirección: ${factura.cliente_direccion}`;
-    const h = doc.heightOfString(dir, { width: contentW * 0.55 });
-    doc.fillColor('#000');
-    doc.text(dir, left, y, { width: contentW * 0.55 });
-    y += Math.max(h + 3, 13);
+    doc.text(factura.cliente_direccion, 75, 169);
   }
 
-  const metaX = left + contentW * 0.5 + 15;
-  const metaW = contentW * 0.5 - 15;
-  let my = clientStartY;
-  doc.fillColor('#000').fontSize(9).font('Helvetica-Bold');
-  doc.text('DATOS DE LA FACTURA', metaX, my); my += 16;
+  y = 177;
+
+  // ===================== GRAY BAR 2 - INVOICE METADATA =====================
+  y = addPageIfNeeded(40, y);
+  doc.rect(L, 177, CW, 31).fill(C_GRAY_BAR);
+
+  const metaCols = [
+    { x: 31, w: 149, label: 'FECHA DE EMISIÓN', lx: 72 },
+    { x: 181, w: 133, label: 'FORMA DE PAGO', lx: 218 },
+    { x: 315, w: 74, label: 'MONEDA', lx: 336 },
+    { x: 390, w: 140, label: 'NÚMERO DE GUÍA', lx: 429 },
+    { x: 531, w: 33, label: 'O/C', lx: 541 },
+  ];
+
+  metaCols.forEach(mc => {
+    doc.rect(mc.x, 181, mc.w, 12).fill(C_GRAY_CELL);
+  });
+
+  doc.fillColor(C_TEAL).fontSize(7.2).font('Helvetica-Bold');
+  metaCols.forEach(mc => {
+    doc.text(mc.label, mc.lx, 190);
+  });
 
   const fecha = factura.created_at
     ? new Date(factura.created_at).toLocaleDateString('es-PE', { timeZone: 'UTC' })
     : '-';
 
-  doc.fontSize(8.5);
-  const metaPairs = [
-    { l: 'Fecha de Emisión:', v: fecha },
-    { l: 'Forma de Pago:', v: 'CONTADO' },
-    { l: 'Moneda:', v: 'Soles' },
-    { l: 'N° Guía:', v: factura.guia_remision || '-' },
-    { l: 'O/C:', v: factura.orden_codigo || '-' },
-  ];
-  const lblW = 75;
-  for (const { l, v } of metaPairs) {
-    doc.fillColor('#000');
-    doc.font('Helvetica-Bold').text(l, metaX, my, { width: lblW, continued: true });
-    doc.font('Helvetica').text(` ${v}`, { width: metaW - lblW });
-    my += 13;
-  }
+  doc.fontSize(7.8).font('Helvetica');
+  doc.fillColor(C_TEAL);
+  doc.text(fecha, 84, 203);
+  doc.text('CONTADO', 227, 203);
+  doc.text('Soles', 343, 203);
 
-  y = Math.max(y, my) + 4;
+  y = 213;
 
-  // ===================== SEPARATOR 2 =====================
-  if (y + 20 > pageBottom) { doc.addPage(); y = 40; }
-  doc.strokeColor('#aaaaaa').moveTo(left, y).lineTo(right, y).stroke();
-  y += 8;
-
-  // ===================== ITEMS TABLE =====================
-  if (y + 30 > pageBottom) { doc.addPage(); y = 40; }
+  // ===================== TABLE =====================
+  y = addPageIfNeeded(80, y);
 
   const colDefs = [
-    { label: 'ITEM', w: 24, a: 'center' },
-    { label: 'CANT.', w: 38, a: 'right' },
-    { label: 'UNID/MED', w: 46, a: 'left' },
-    { label: 'CÓDIGO', w: 56, a: 'left' },
-    { label: 'DESCRIPCIÓN', w: 202, a: 'left' },
-    { label: 'V.UNIT S/', w: 66, a: 'right' },
-    { label: 'IMPORTE S/', w: 72, a: 'right' },
+    { x: L, w: 24, a: 'center', label: 'ITEM' },
+    { x: L + 24, w: 28, a: 'right', label: 'CANT.' },
+    { x: L + 52, w: 47, a: 'left', label: 'UNID/MED' },
+    { x: L + 99, w: 46, a: 'left', label: 'CÓDIGO' },
+    { x: L + 145, w: 273, a: 'left', label: 'DESCRIPCIÓN' },
+    { x: L + 418, w: 44, a: 'right', label: 'V. UNIT. S/' },
+    { x: L + 462, w: 81, a: 'right', label: 'IMPORTE S/' },
   ];
-  const tableW = colDefs.reduce((s, c) => s + c.w, 0);
 
-  function colX(i) { let x = left; for (let j = 0; j < i; j++) x += colDefs[j].w; return x; }
+  // header
+  colDefs.forEach(c => {
+    doc.rect(c.x, 213, c.w, 13).fill(C_TABLE_HDR);
+  });
+  doc.fillColor(C_WHITE).fontSize(7.2).font('Helvetica-Bold');
+  colDefs.forEach((c, i) => {
+    doc.text(c.label, c.x + 3, 222, { width: c.w - 6, align: c.a });
+  });
 
-  function drawHdr(yPos) {
-    if (yPos + 22 > pageBottom - 20) { doc.addPage(); yPos = 40; }
-    doc.rect(left, yPos, tableW, 20).fill('#f0f0f0');
-    doc.fillColor('#000').fontSize(7.5).font('Helvetica-Bold');
-    colDefs.forEach((c, i) => doc.text(c.label, colX(i) + 3, yPos + 5, { width: c.w - 6, align: c.a }));
-    doc.strokeColor('#cccccc').moveTo(left, yPos + 20).lineTo(right, yPos + 20).stroke();
-    return yPos + 20;
-  }
+  // grid lines at y=226
+  colDefs.forEach(c => {
+    doc.rect(c.x, 226, c.w, 1).fill(C_GRID);
+  });
+
+  let rowY = 226;
+  const rowH = 13;
+  const rowColors = [C_ROW1, C_ROW2, C_ROW3];
 
   function drawRow(yPos, idx, row) {
-    if (yPos + 16 > pageBottom - 20) {
+    if (yPos + rowH + 30 > PG) {
       doc.addPage();
-      yPos = drawHdr(40);
+      yPos = L;
+      // redraw header on new page
+      colDefs.forEach(c => {
+        doc.rect(c.x, yPos, c.w, 13).fill(C_TABLE_HDR);
+      });
+      doc.fillColor(C_WHITE).fontSize(7.2).font('Helvetica-Bold');
+      colDefs.forEach((c, i) => {
+        doc.text(c.label, c.x + 3, yPos + 9, { width: c.w - 6, align: c.a });
+      });
+      colDefs.forEach(c => {
+        doc.rect(c.x, yPos + 13, c.w, 1).fill(C_GRID);
+      });
+      yPos += 14;
     }
-    doc.strokeColor('#e0e0e0').moveTo(left, yPos).lineTo(right, yPos).stroke();
-    doc.fillColor('#000').fontSize(7).font('Helvetica');
+
+    const color = rowColors[Math.min(idx - 1, 2)];
     const vals = [
       String(idx), String(row.cantidad || '-'), 'UNIDADES',
       row.codigo || '', row.descripcion || row.nombre || '',
-      `${parseFloat(row.precio_unitario || 0).toFixed(2)}`,
-      `${parseFloat(row.subtotal || 0).toFixed(2)}`,
+      parseFloat(row.precio_unitario || 0).toFixed(2),
+      parseFloat(row.subtotal || 0).toFixed(2),
     ];
-    colDefs.forEach((c, i) => doc.text(vals[i], colX(i) + 3, yPos + 2, { width: c.w - 6, align: c.a }));
-    return yPos + 16;
+
+    colDefs.forEach((c, i) => {
+      doc.rect(c.x, yPos, c.w, rowH).fill(color);
+    });
+
+    doc.fillColor(C_TEAL).fontSize(7.2).font('Helvetica');
+    colDefs.forEach((c, i) => {
+      doc.text(vals[i], c.x + 3, yPos + 3, { width: c.w - 6, align: c.a });
+    });
+
+    // bottom grid line
+    colDefs.forEach(c => {
+      doc.rect(c.x, yPos + rowH, c.w, 1).fill(C_GRID);
+    });
+
+    return yPos + rowH + 1;
   }
 
-  y = drawHdr(y);
-
   if (items && items.length > 0) {
-    items.forEach((item, i) => { y = drawRow(y, i + 1, item); });
+    items.forEach((item, i) => { rowY = drawRow(rowY, i + 1, item); });
   } else {
-    y = drawRow(y, 1, {
+    rowY = drawRow(rowY, 1, {
       cantidad: 1, codigo: '', descripcion: 'SEGÚN FACTURACIÓN DIRECTA',
       precio_unitario: factura.subtotal, subtotal: factura.subtotal,
     });
   }
 
-  doc.strokeColor('#cccccc').moveTo(left, y).lineTo(right, y).stroke();
-  y += 10;
+  // footer row (full width) with amount in words
+  doc.rect(L, rowY, CW, 14).fill(C_ROW2);
+  doc.fillColor(C_BLACK).fontSize(7.2).font('Helvetica-Bold');
+  doc.text(`SON ${numeroALetras(parseFloat(factura.total))} SOLES`, L + 1, rowY + 3, { width: CW - 2 });
+  doc.rect(L, rowY + 14, CW, 1).fill(C_GRID);
 
-  // ===================== TOTALS =====================
-  if (y + 110 > pageBottom) { doc.addPage(); y = 40; }
+  rowY += 15;
 
-  const tW = 190;
-  const tX = right - tW;
+  // ===================== SEPARATOR LINE + TOTALS + OBSERVATION =====================
+  // separator line at y=290
+  let sepY = Math.max(rowY + 10, 290);
+  if (sepY + 60 > PG) { doc.addPage(); sepY = L + 10; }
 
-  doc.fillColor('#000').fontSize(9);
+  doc.rect(L, sepY, 362, 1).fill(C_GRID);
+  doc.rect(388, sepY, CW - 388, 1).fill(C_GRID);
+
+  // LEFT side: Observation + Elaborado por
+  doc.fillColor(C_TEAL);
+  doc.fontSize(7.2).font('Helvetica-Bold');
+  let obY = sepY + 9;
+  doc.text('Observación: ', L + 1, obY);
+  doc.font('Helvetica');
+  doc.text(factura.notas || '-', L + 1 + doc.widthOfString('Observación: '), obY);
+
+  obY += 9;
+  doc.font('Helvetica');
+  doc.text('Elaborado por: SISTEMA', L + 1, obY);
+
+  // RIGHT side: Totals
+  let ttY = sepY + 11;
+  const tX = 392;
+  const tLabelW = 100;
+  const tValW = 70;
+
+  doc.fontSize(7.2).font('Helvetica-Bold');
   const tRows = [
-    { l: 'Op. Gravadas', v: `S/ ${parseFloat(factura.subtotal).toFixed(2)}` },
-    { l: 'Dscto Global', v: 'S/ 0.00' },
+    { l: 'OP. GRAVADAS', v: `S/ ${parseFloat(factura.subtotal).toFixed(2)}` },
+    { l: 'DSCTO GLOBAL', v: 'S/ 0.00' },
     { l: 'IGV (18.00%)', v: `S/ ${parseFloat(factura.igv).toFixed(2)}` },
   ];
   tRows.forEach(r => {
-    doc.fillColor('#000').font('Helvetica').text(r.l, tX, y, { width: tW * 0.5, align: 'left', continued: true });
-    doc.font('Helvetica-Bold').text(r.v, { width: tW * 0.5, align: 'right' });
-    y += 14;
+    doc.fillColor(C_BLACK);
+    doc.text(r.l, tX, ttY, { width: tLabelW, align: 'left' });
+    doc.text(r.v, tX + tLabelW, ttY, { width: tValW, align: 'right' });
+    ttY += 13;
   });
 
-  doc.rect(tX, y, tW, 26).fill('#000');
-  doc.fillColor('#FFF').fontSize(11).font('Helvetica-Bold');
-  doc.text('TOTAL S/', tX + 8, y + 5, { width: 80, align: 'left', continued: true });
-  doc.text(`S/ ${parseFloat(factura.total).toFixed(2)}`, { width: tW - 96, align: 'right' });
-  doc.fillColor('#000');
-  y += 32;
+  // total box - green on top of blue
+  const totBoxX = 390;
+  const totBoxW = 103;
+  const totBoxH = 14;
+  doc.rect(totBoxX, ttY, totBoxW, totBoxH).fill(C_TABLE_HDR);
+  doc.rect(totBoxX, ttY, totBoxW, totBoxH).fill(C_GREEN);
+  const totValX = 493;
+  const totValW = 74;
+  doc.rect(totValX, ttY, totValW, totBoxH).fill(C_TABLE_HDR);
+  doc.rect(totValX, ttY, totValW, totBoxH).fill(C_GREEN);
+  doc.fillColor(C_WHITE).fontSize(7.2).font('Helvetica-Bold');
+  doc.text('TOTALES', totBoxX + 5, ttY + 3, { width: totBoxW - 10, align: 'left' });
+  doc.text(`S/ ${parseFloat(factura.total).toFixed(2)}`, totValX + 5, ttY + 3, { width: totValW - 10, align: 'right' });
+  ttY += totBoxH;
 
-  // ===================== AMOUNT IN WORDS =====================
-  y += 4;
-  doc.fillColor('#000').fontSize(9).font('Helvetica');
-  doc.text(`SON: ${numeroALetras(parseFloat(factura.total))} SOLES`, left, y);
-  y += 18;
+  // ===================== QR / FOOTER BOX =====================
+  let qrY = Math.max(ttY + 10, 356);
+  if (qrY + 60 > PG) { doc.addPage(); qrY = L + 10; }
+  doc.rect(143, qrY, 309, 50).fill(C_GRAY_BAR);
 
-  // ===================== SEPARATOR =====================
-  if (y + 20 > pageBottom) { doc.addPage(); y = 40; }
-  doc.strokeColor('#aaaaaa').moveTo(left, y).lineTo(right, y).stroke();
-  y += 8;
+  doc.fillColor(C_BLACK).fontSize(7.2).font('Helvetica');
+  doc.text(`Representación Impresa de la Factura Electrónica ${factura.numero_completo}`, 196, qrY + 16, { width: 250, align: 'left' });
+  doc.text('Consulte su CPE en:', 196, qrY + 25, { width: 250, align: 'left' });
+  doc.text('https://www.sunat.gob.pe', 196, qrY + 33, { width: 250, align: 'left' });
 
-  // ===================== FOOTER =====================
-  if (y + 90 > pageBottom) { doc.addPage(); y = 40; }
-
-  doc.fillColor('#000').fontSize(8).font('Helvetica-Bold');
-  doc.text('INFORMACIÓN ADICIONAL', left, y); y += 14;
-
-  doc.fontSize(8).font('Helvetica');
-  doc.fillColor('#000');
-  doc.text(`Observación: ${factura.notas || '-'}`, left, y); y += 12;
-  doc.text(`Elaborado por: SISTEMA`, left, y); y += 12;
-  doc.text(`Representación Impresa de la Factura Electrónica: ${factura.numero_completo}`, left, y);
-  y += 14;
-  doc.fillColor('#666').text('Consulte su CPE en: https://www.sunat.gob.pe', left, y); y += 12;
-  doc.fillColor('#000');
+  // ===================== YAPE =====================
+  let yaY = Math.max(qrY + 60, 424);
+  if (yaY + 8 > PG) { doc.addPage(); yaY = L + 10; }
+  if (factura.yape) {
+    doc.fillColor(C_TEAL).fontSize(7.8).font('Helvetica');
+    doc.text(`YAPE: ${factura.yape}`, L, yaY);
+    yaY += 4;
+  }
 
   // ===================== BANK INFO =====================
+  let bankY = Math.max(yaY + 4, 426);
+  if (bankY + 45 > PG) { doc.addPage(); bankY = L + 10; }
   if (factura.banco_nombre) {
-    if (y + 100 > pageBottom) { doc.addPage(); y = 40; }
-    y += 8;
-    doc.strokeColor('#cccccc').moveTo(left, y).lineTo(right, y).stroke();
-    y += 12;
-    doc.fillColor('#000').fontSize(10).font('Helvetica-Bold');
-    doc.text('DATOS BANCARIOS', left, y); y += 16;
-    doc.fontSize(9);
-    const bItems = [
-      ['Banco:', factura.banco_nombre],
-      ['Tipo Cuenta:', factura.banco_tipo_cuenta],
-      ['N° Cuenta:', factura.banco_numero_cuenta],
-      ['CCI:', factura.banco_cci],
+    doc.rect(L, bankY, CW, 36).fill(C_GRAY_BAR);
+
+    const bankCols = [
+      { x: 31, w: 207, label: 'BANCO', lx: 122 },
+      { x: 239, w: 132, label: 'TIPO DE CUENTA', lx: 276 },
+      { x: 372, w: 77, label: 'NRO DE CUENTA', lx: 382 },
+      { x: 450, w: 114, label: 'CCI', lx: 501 },
     ];
-    const blW = 70;
-    bItems.forEach(([l, v]) => {
-      doc.fillColor('#000');
-      doc.font('Helvetica-Bold').text(l, left, y, { width: blW, continued: true });
-      doc.font('Helvetica').text(v || '', { width: contentW - blW });
-      y += 13;
+    bankCols.forEach(bc => {
+      doc.rect(bc.x, bankY + 4, bc.w, 12).fill(C_GRAY_CELL);
     });
+
+    doc.fillColor(C_TEAL).fontSize(7.2).font('Helvetica-Bold');
+    bankCols.forEach(bc => {
+      doc.text(bc.label, bc.lx, bankY + 10);
+    });
+
+    doc.fontSize(7.2).font('Helvetica');
+    doc.fillColor(C_TEAL);
+    doc.text(factura.banco_nombre, 63, bankY + 24);
+    doc.text(`CUENTA_CORRIENTE - SOLES`, 240, bankY + 24);
+    doc.text(factura.banco_numero_cuenta || '', 372, bankY + 24);
+    doc.text(factura.banco_cci || '', 451, bankY + 24);
   }
 
   doc.end();
