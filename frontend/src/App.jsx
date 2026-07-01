@@ -16,6 +16,7 @@ import Config from './pages/Config';
 import Reportes from './pages/Reportes';
 import MovimientosStock from './pages/MovimientosStock';
 import AuditLog from './pages/AuditLog';
+import Morosos from './pages/Morosos';
 
 function PrivateRoute() {
   const { usuario, loading } = useAuth();
@@ -44,6 +45,7 @@ function App() {
                   <Route path="/reportes" element={<Reportes />} />
                   <Route path="/movimientos-stock" element={<MovimientosStock />} />
                   <Route path="/auditoria" element={<AuditLog />} />
+                  <Route path="/morosos" element={<Morosos />} />
                   <Route path="*" element={<Navigate to="/" />} />
                 </Route>
               </Route>

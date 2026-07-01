@@ -10,6 +10,7 @@ const menuItems = [
   { path: '/facturas', label: 'Facturacion', icon: '🧾', roles: ['super_admin', 'admin', 'secretaria'] },
   { path: '/productos', label: 'Productos', icon: '📦', roles: ['super_admin', 'admin', 'secretaria', 'almacen'] },
   { path: '/clientes', label: 'Clientes', icon: '👥', roles: ['super_admin', 'admin', 'secretaria'] },
+  { path: '/morosos', label: 'Morosos', icon: '💰', roles: ['super_admin', 'admin', 'secretaria'] },
   { path: '/movimientos-stock', label: 'Mov. Stock', icon: '📦', roles: ['super_admin', 'admin', 'almacen'] },
   { path: '/auditoria', label: 'Auditoria', icon: '📜', roles: ['super_admin', 'admin'] },
   { path: '/usuarios', label: 'Usuarios', icon: '🔐', roles: ['super_admin', 'admin'] },

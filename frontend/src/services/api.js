@@ -103,4 +103,12 @@ export const auditLogAPI = {
   getResumen: () => api.get('/audit-log/resumen'),
 };
 
+export const prestamosAPI = {
+  getAll: (params) => api.get('/prestamos', { params }),
+  getById: (id) => api.get(`/prestamos/${id}`),
+  create: (data) => api.post('/prestamos', data),
+  pagarCuota: (prestamoId, cuotaId, fecha_pago) => api.put(`/prestamos/${prestamoId}/cuotas/${cuotaId}/pagar`, { fecha_pago }),
+  getAlertas: () => api.get('/prestamos/alertas'),
+};
+
 export default api;
