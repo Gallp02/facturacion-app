@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ToastProvider } from './context/ToastContext';
 import { ThemeProvider } from './context/ThemeContext';
@@ -17,10 +17,10 @@ import Reportes from './pages/Reportes';
 import MovimientosStock from './pages/MovimientosStock';
 import AuditLog from './pages/AuditLog';
 
-function PrivateRoute({ children }) {
+function PrivateRoute() {
   const { usuario, loading } = useAuth();
   if (loading) return <div style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #718096)' }}>Cargando...</div>;
-  return usuario ? <EmpresaProvider><Layout>{children}</Layout></EmpresaProvider> : <Navigate to="/login" />;
+  return usuario ? <EmpresaProvider><Outlet /></EmpresaProvider> : <Navigate to="/login" />;
 }
 
 function App() {
@@ -31,18 +31,22 @@ function App() {
           <BrowserRouter>
             <Routes>
               <Route path="/login" element={<Login />} />
-              <Route path="/" element={<PrivateRoute><Dashboard /></PrivateRoute>} />
-              <Route path="/productos" element={<PrivateRoute><Productos /></PrivateRoute>} />
-              <Route path="/clientes" element={<PrivateRoute><Clientes /></PrivateRoute>} />
-              <Route path="/ordenes" element={<PrivateRoute><Ordenes /></PrivateRoute>} />
-              <Route path="/facturas" element={<PrivateRoute><Facturas /></PrivateRoute>} />
-              <Route path="/usuarios" element={<PrivateRoute><Usuarios /></PrivateRoute>} />
-              <Route path="/config" element={<PrivateRoute><Config /></PrivateRoute>} />
-              <Route path="/empresas" element={<PrivateRoute><Empresas /></PrivateRoute>} />
-              <Route path="/reportes" element={<PrivateRoute><Reportes /></PrivateRoute>} />
-              <Route path="/movimientos-stock" element={<PrivateRoute><MovimientosStock /></PrivateRoute>} />
-              <Route path="/auditoria" element={<PrivateRoute><AuditLog /></PrivateRoute>} />
-              <Route path="*" element={<Navigate to="/" />} />
+              <Route element={<PrivateRoute />}>
+                <Route element={<Layout />}>
+                  <Route path="/" element={<Dashboard />} />
+                  <Route path="/productos" element={<Productos />} />
+                  <Route path="/clientes" element={<Clientes />} />
+                  <Route path="/ordenes" element={<Ordenes />} />
+                  <Route path="/facturas" element={<Facturas />} />
+                  <Route path="/usuarios" element={<Usuarios />} />
+                  <Route path="/config" element={<Config />} />
+                  <Route path="/empresas" element={<Empresas />} />
+                  <Route path="/reportes" element={<Reportes />} />
+                  <Route path="/movimientos-stock" element={<MovimientosStock />} />
+                  <Route path="/auditoria" element={<AuditLog />} />
+                  <Route path="*" element={<Navigate to="/" />} />
+                </Route>
+              </Route>
             </Routes>
           </BrowserRouter>
         </ToastProvider>

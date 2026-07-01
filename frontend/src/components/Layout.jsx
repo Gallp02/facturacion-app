@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link, Outlet } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
 import { useTheme } from '../context/ThemeContext';
 import { useEmpresa } from '../context/EmpresaContext';
@@ -18,7 +18,7 @@ const menuItems = [
   { path: '/reportes', label: 'Reportes', icon: '📈', roles: ['super_admin', 'admin', 'contador'] },
 ];
 
-export default function Layout({ children }) {
+export default function Layout() {
   const { usuario, logout } = useAuth();
   const { dark, toggle } = useTheme();
   const { empresas, selectedEmpresa, selectEmpresa } = useEmpresa();
@@ -237,7 +237,7 @@ export default function Layout({ children }) {
         )}
 
         <main style={{ padding: 24, background: 'var(--bg-main, #f8fafc)', minHeight: 'calc(100vh - 56px)' }}>
-          {children}
+          <Outlet />
         </main>
       </div>
 
