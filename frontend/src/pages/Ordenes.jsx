@@ -50,7 +50,9 @@ export default function Ordenes() {
   }, []);
 
   useEffect(() => { loadData(page, search, estadoFilter); }, [page]);
+  const mounted = useRef(false);
   useEffect(() => {
+    if (!mounted.current) { mounted.current = true; return; }
     const timer = setTimeout(() => { setPage(1); loadData(1, search, estadoFilter); }, 400);
     return () => clearTimeout(timer);
   }, [search, estadoFilter]);

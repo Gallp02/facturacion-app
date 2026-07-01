@@ -43,7 +43,9 @@ export default function Clientes() {
   }, []);
 
   useEffect(() => { loadData(page, search); }, [page]);
+  const mounted = useRef(false);
   useEffect(() => {
+    if (!mounted.current) { mounted.current = true; return; }
     const timer = setTimeout(() => { setPage(1); loadData(1, search); }, 400);
     return () => clearTimeout(timer);
   }, [search]);

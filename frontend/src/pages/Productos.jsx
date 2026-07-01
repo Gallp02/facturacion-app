@@ -57,7 +57,9 @@ export default function Productos() {
 
   useEffect(() => { loadData(); }, [page, filtroCategoria]);
 
+  const mounted = useRef(false);
   useEffect(() => {
+    if (!mounted.current) { mounted.current = true; return; }
     const timer = setTimeout(() => { setPage(1); loadData(1, search, filtroCategoria); }, 400);
     return () => clearTimeout(timer);
   }, [search]);
