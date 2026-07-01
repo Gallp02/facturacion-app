@@ -5,16 +5,17 @@ import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/SearchBar';
 import Pagination from '../components/Pagination';
 import Modal from '../components/Modal';
-import { TableSkeleton } from '../components/Skeleton';
 import { exportToCSV } from '../utils/export';
+import { getCache, setCache } from '../utils/pageCache';
 
 export default function Clientes() {
   const { addToast } = useToast();
   const { usuario } = useAuth();
   const isSuperAdmin = usuario?.rol === 'super_admin';
-  const [clientes, setClientes] = useState([]);
+  const cached = getCache('clientes');
+  const [clientes, setClientes] = useState(cached?.clientes || []);
   const [loading, setLoading] = useState(false);
-  const loadedRef = useRef(false);
+  const loadedRef = useRef(!!cached);
   const [page, setPage] = useState(1);
   const [total, setTotal] = useState(0);
   const [search, setSearch] = useState('');
@@ -31,6 +32,7 @@ export default function Clientes() {
       const res = await clientesAPI.getAll({ page: p, limit: 20, search: s });
       setClientes(res.data.data);
       setTotal(res.data.total);
+      setCache('clientes', { clientes: res.data.data, total: res.data.total });
     } catch (err) {
       addToast('Error al cargar clientes', 'error');
     } finally {
@@ -162,48 +164,46 @@ export default function Clientes() {
         </form>
       </Modal>
 
-      {loading ? <TableSkeleton rows={6} cols={6} /> : (
-        <div style={{ background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 700 }}>
-              <thead>
-                <tr style={{ background: 'var(--bg-secondary, #f7fafc)', textAlign: 'left' }}>
-                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Doc.</th>
-                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Numero</th>
-                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Nombre</th>
-                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Apodo</th>
-                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Email</th>
-                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Telefono</th>
-                  {isSuperAdmin && <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Accion</th>}
+      <div style={{ opacity: loading && loadedRef.current ? 0.5 : 1, transition: 'opacity 0.15s', background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
+        <div style={{ overflowX: 'auto' }}>
+          <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 700 }}>
+            <thead>
+              <tr style={{ background: 'var(--bg-secondary, #f7fafc)', textAlign: 'left' }}>
+                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Doc.</th>
+                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Numero</th>
+                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Nombre</th>
+                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Apodo</th>
+                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Email</th>
+                <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Telefono</th>
+                {isSuperAdmin && <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Accion</th>}
+              </tr>
+            </thead>
+            <tbody>
+              {clientes.map((c) => (
+                <tr key={c.id} style={{ borderBottom: '1px solid var(--border, #e2e8f0)' }}>
+                  <td style={{ padding: '10px 16px' }}>{c.tipo_documento}</td>
+                  <td style={{ padding: '10px 16px' }}>{c.numero_documento}</td>
+                  <td style={{ padding: '10px 16px' }}>{c.nombre}</td>
+                  <td style={{ padding: '10px 16px', color: 'var(--text-secondary, #718096)', fontSize: 13 }}>{c.apodo || '-'}</td>
+                  <td style={{ padding: '10px 16px' }}>{c.email || '-'}</td>
+                  <td style={{ padding: '10px 16px' }}>{c.telefono || '-'}</td>
+                  {isSuperAdmin && (
+                    <td style={{ padding: '10px 16px' }}>
+                      <button onClick={() => openEdit(c)} style={{ padding: '6px 12px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
+                        Editar
+                      </button>
+                    </td>
+                  )}
                 </tr>
-              </thead>
-              <tbody>
-                {clientes.map((c) => (
-                  <tr key={c.id} style={{ borderBottom: '1px solid var(--border, #e2e8f0)' }}>
-                    <td style={{ padding: '10px 16px' }}>{c.tipo_documento}</td>
-                    <td style={{ padding: '10px 16px' }}>{c.numero_documento}</td>
-                    <td style={{ padding: '10px 16px' }}>{c.nombre}</td>
-                    <td style={{ padding: '10px 16px', color: 'var(--text-secondary, #718096)', fontSize: 13 }}>{c.apodo || '-'}</td>
-                    <td style={{ padding: '10px 16px' }}>{c.email || '-'}</td>
-                    <td style={{ padding: '10px 16px' }}>{c.telefono || '-'}</td>
-                    {isSuperAdmin && (
-                      <td style={{ padding: '10px 16px' }}>
-                        <button onClick={() => openEdit(c)} style={{ padding: '6px 12px', background: 'var(--bg-secondary, #edf2f7)', border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
-                          Editar
-                        </button>
-                      </td>
-                    )}
-                  </tr>
-                ))}
-                  {clientes.length === 0 && !loading && (
-                  <tr><td colSpan={isSuperAdmin ? 7 : 6} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #a0aec0)' }}>No hay clientes registrados</td></tr>
-                )}
-              </tbody>
-            </table>
-          </div>
-          <Pagination page={page} limit={20} total={total} onChange={setPage} />
+              ))}
+                {clientes.length === 0 && !loading && (
+                <tr><td colSpan={isSuperAdmin ? 7 : 6} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #a0aec0)' }}>No hay clientes registrados</td></tr>
+              )}
+            </tbody>
+          </table>
         </div>
-      )}
+        <Pagination page={page} limit={20} total={total} onChange={setPage} />
+      </div>
     </div>
   );
 }
