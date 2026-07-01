@@ -40,6 +40,15 @@ export const usuariosAPI = {
   getRoles: () => api.get('/usuarios/roles'),
 };
 
+export const almacenesAPI = {
+  getAll: () => api.get('/almacenes'),
+  getById: (id) => api.get(`/almacenes/${id}`),
+  create: (data) => api.post('/almacenes', data),
+  update: (id, data) => api.put(`/almacenes/${id}`, data),
+  getProductoStock: (productoId) => api.get(`/almacenes/producto/${productoId}/stock`),
+  updateProductoStock: (productoId, data) => api.put(`/almacenes/producto/${productoId}/stock`, data),
+};
+
 export const productosAPI = {
   getAll: (params) => api.get('/productos', { params }),
   getById: (id) => api.get(`/productos/${id}`),

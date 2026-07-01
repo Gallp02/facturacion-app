@@ -30,8 +30,8 @@ router.get('/', authorize('super_admin', 'admin', 'almacen'), async (req, res) =
       params
     );
     const [rows] = await pool.query(
-      `SELECT m.*, p.nombre as producto_nombre, p.codigo as producto_codigo, u.nombre as usuario_nombre
-       FROM movimientos_stock m JOIN productos p ON m.producto_id = p.id JOIN usuarios u ON m.usuario_id = u.id
+      `SELECT m.*, p.nombre as producto_nombre, p.codigo as producto_codigo, u.nombre as usuario_nombre, a.nombre as almacen_nombre
+       FROM movimientos_stock m JOIN productos p ON m.producto_id = p.id JOIN usuarios u ON m.usuario_id = u.id LEFT JOIN almacenes a ON m.almacen_id = a.id
        ${where} ORDER BY m.created_at DESC LIMIT ? OFFSET ?`,
       [...params, parseInt(limit), offset]
     );
@@ -57,7 +57,7 @@ router.get('/by-producto/:productoId', async (req, res) => {
 
 router.post('/', authorize('super_admin', 'admin', 'almacen'), async (req, res) => {
   try {
-    const { producto_id, tipo, cantidad, referencia } = req.body;
+    const { producto_id, tipo, cantidad, referencia, almacen_id, cajas, unitario } = req.body;
     if (!producto_id || !tipo || !cantidad) {
       return res.status(400).json({ error: 'Producto, tipo y cantidad requeridos' });
     }
@@ -70,6 +70,37 @@ router.post('/', authorize('super_admin', 'admin', 'almacen'), async (req, res) 
 
     const cant = parseInt(cantidad);
     if (cant <= 0) return res.status(400).json({ error: 'Cantidad debe ser mayor a 0' });
+
+    const almacenId = almacen_id || 1;
+    const c = parseInt(cajas) || 0;
+    const u = parseInt(unitario) || 0;
+
+    // Update producto_almacen
+    const [pa] = await pool.query('SELECT stock_cajas, stock_unitario FROM producto_almacen WHERE producto_id = ? AND almacen_id = ?', [producto_id, almacenId]);
+    if (pa.length === 0) {
+      await pool.query('INSERT INTO producto_almacen (producto_id, almacen_id, stock_cajas, stock_unitario) VALUES (?, ?, ?, ?)', [producto_id, almacenId, 0, 0]);
+    }
+
+    if (tipo === 'entrada') {
+      await pool.query('UPDATE producto_almacen SET stock_cajas = stock_cajas + ?, stock_unitario = stock_unitario + ? WHERE producto_id = ? AND almacen_id = ?', [c, u, producto_id, almacenId]);
+    } else if (tipo === 'salida') {
+      const [pa2] = await pool.query('SELECT stock_cajas, stock_unitario FROM producto_almacen WHERE producto_id = ? AND almacen_id = ?', [producto_id, almacenId]);
+      if (pa2[0].stock_cajas < c) return res.status(400).json({ error: `Stock insuficiente de cajas. Actual: ${pa2[0].stock_cajas}` });
+      if (pa2[0].stock_unitario < u) return res.status(400).json({ error: `Stock insuficiente de unidades. Actual: ${pa2[0].stock_unitario}` });
+      await pool.query('UPDATE producto_almacen SET stock_cajas = stock_cajas - ?, stock_unitario = stock_unitario - ? WHERE producto_id = ? AND almacen_id = ?', [c, u, producto_id, almacenId]);
+    } else {
+      // ajuste: positive adds, negative subtracts
+      if (c >= 0) {
+        await pool.query('UPDATE producto_almacen SET stock_cajas = stock_cajas + ? WHERE producto_id = ? AND almacen_id = ?', [c, producto_id, almacenId]);
+      } else {
+        await pool.query('UPDATE producto_almacen SET stock_cajas = stock_cajas - ? WHERE producto_id = ? AND almacen_id = ?', [Math.abs(c), producto_id, almacenId]);
+      }
+      if (u >= 0) {
+        await pool.query('UPDATE producto_almacen SET stock_unitario = stock_unitario + ? WHERE producto_id = ? AND almacen_id = ?', [u, producto_id, almacenId]);
+      } else {
+        await pool.query('UPDATE producto_almacen SET stock_unitario = stock_unitario - ? WHERE producto_id = ? AND almacen_id = ?', [Math.abs(u), producto_id, almacenId]);
+      }
+    }
 
     const stockAnterior = productos[0].stock;
     let stockNuevo;
@@ -84,12 +115,12 @@ router.post('/', authorize('super_admin', 'admin', 'almacen'), async (req, res) 
 
     await pool.query('UPDATE productos SET stock = ? WHERE id = ?', [stockNuevo, producto_id]);
     const [result] = await pool.query(
-      'INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, referencia, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [producto_id, tipo, cant, stockAnterior, stockNuevo, referencia || `Ajuste manual (${tipo})`, req.usuario.id]
+      'INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, referencia, usuario_id, almacen_id, cajas, unitario) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+      [producto_id, tipo, cant, stockAnterior, stockNuevo, referencia || `Ajuste manual (${tipo})`, req.usuario.id, almacenId, c, u]
     );
 
     if (req.usuario) {
-      await auditLog(req.usuario.id, req.usuario.nombre, 'crear_movimiento_stock', 'movimientos_stock', result.insertId, { producto_id, tipo, cantidad, stock_anterior: stockAnterior, stock_nuevo: stockNuevo });
+      await auditLog(req.usuario.id, req.usuario.nombre, 'crear_movimiento_stock', 'movimientos_stock', result.insertId, { producto_id, tipo, cantidad, stock_anterior: stockAnterior, stock_nuevo: stockNuevo, almacen_id: almacenId, cajas: c, unitario: u });
     }
 
     res.status(201).json({ id: result.insertId, mensaje: 'Movimiento registrado', stock_nuevo: stockNuevo });

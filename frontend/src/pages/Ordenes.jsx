@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { ordenesAPI, productosAPI, clientesAPI } from '../services/api';
+import { ordenesAPI, productosAPI, clientesAPI, almacenesAPI } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import SearchBar from '../components/SearchBar';
 import Pagination from '../components/Pagination';
@@ -24,22 +24,25 @@ export default function Ordenes() {
   const [selectedOrden, setSelectedOrden] = useState(null);
   const [confirmEstado, setConfirmEstado] = useState(null);
   const [saving, setSaving] = useState(false);
-  const [form, setForm] = useState({ cliente_id: '', notas: '', items: [{ producto_id: '', cantidad: 1 }] });
+  const [almacenes, setAlmacenes] = useState([]);
+  const [form, setForm] = useState({ cliente_id: '', notas: '', items: [{ producto_id: '', almacen_id: '', cajas: 0, unitario: 1 }] });
 
   const loadData = useCallback(async (p, s, est) => {
     if (loadedRef.current) setLoading(true);
     try {
       const params = { page: p, limit: 20, search: s };
       if (est) params.estado = est;
-      const [oRes, pRes, cRes] = await Promise.all([
+      const [oRes, pRes, cRes, aRes] = await Promise.all([
         ordenesAPI.getAll(params),
         productosAPI.getAll({ limit: 200 }),
-        clientesAPI.getAll({ limit: 200 })
+        clientesAPI.getAll({ limit: 200 }),
+        almacenesAPI.getAll()
       ]);
       setOrdenes(oRes.data.data);
       setTotal(oRes.data.total);
       setProductos(pRes.data.data || pRes.data);
       setClientes(cRes.data.data || cRes.data);
+      setAlmacenes(aRes.data);
       setCache('ordenes', { ordenes: oRes.data.data, total: oRes.data.total, productos: pRes.data.data || pRes.data, clientes: cRes.data.data || cRes.data });
     } catch (err) {
       addToast('Error al cargar ordenes', 'error');
@@ -57,7 +60,7 @@ export default function Ordenes() {
     return () => clearTimeout(timer);
   }, [search, estadoFilter]);
 
-  const addItem = () => setForm({ ...form, items: [...form.items, { producto_id: '', cantidad: 1 }] });
+  const addItem = () => setForm({ ...form, items: [...form.items, { producto_id: '', almacen_id: '', cajas: 0, unitario: 1 }] });
   const removeItem = (index) => setForm({ ...form, items: form.items.filter((_, i) => i !== index) });
   const updateItem = (index, field, value) => {
     const items = [...form.items];
@@ -68,12 +71,18 @@ export default function Ordenes() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.cliente_id) { addToast('Seleccione un cliente', 'error'); return; }
-    if (!form.items[0]?.producto_id) { addToast('Agregue al menos un producto', 'error'); return; }
+    const validItems = form.items.filter(it => it.producto_id);
+    if (validItems.length === 0) { addToast('Agregue al menos un producto', 'error'); return; }
+    for (const it of validItems) {
+      if (!it.almacen_id) { addToast('Seleccione almacen para cada producto', 'error'); return; }
+      const total = (parseInt(it.cajas) || 0) + (parseInt(it.unitario) || 0);
+      if (total <= 0) { addToast('Cajas + unitario debe ser > 0', 'error'); return; }
+    }
     setSaving(true);
     try {
-      await ordenesAPI.create(form);
+      await ordenesAPI.create({ ...form, items: validItems });
       setShowForm(false);
-      setForm({ cliente_id: '', notas: '', items: [{ producto_id: '', cantidad: 1 }] });
+      setForm({ cliente_id: '', notas: '', items: [{ producto_id: '', almacen_id: '', cajas: 0, unitario: 1 }] });
       addToast('Orden creada correctamente', 'success');
       loadData(page, search, estadoFilter);
     } catch (err) {
@@ -139,7 +148,7 @@ export default function Ordenes() {
         </select>
       </div>
 
-      <Modal open={showForm} onClose={() => { setShowForm(false); setForm({ cliente_id: '', notas: '', items: [{ producto_id: '', cantidad: 1 }] }); }} title="Nueva Orden de Compra" maxWidth={650}>
+      <Modal open={showForm} onClose={() => { setShowForm(false); setForm({ cliente_id: '', notas: '', items: [{ producto_id: '', almacen_id: '', cajas: 0, unitario: 1 }] }); }} title="Nueva Orden de Compra" maxWidth={750}>
         <form onSubmit={handleSubmit}>
           <div style={{ marginBottom: 16 }}>
             <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Cliente</label>
@@ -162,14 +171,27 @@ export default function Ordenes() {
               </button>
             </div>
             {form.items.map((item, i) => (
-              <div key={i} style={{ display: 'flex', gap: 12, marginBottom: 8, alignItems: 'center' }}>
+              <div key={i} style={{ display: 'flex', gap: 8, marginBottom: 8, alignItems: 'center', flexWrap: 'wrap' }}>
                 <select value={item.producto_id} onChange={(e) => updateItem(i, 'producto_id', e.target.value)} required
-                  style={{ flex: 2, padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
-                  <option value="">Seleccionar producto</option>
-                  {productos.map(p => <option key={p.id} value={p.id}>{p.nombre} - Stock: {p.stock} - S/ {parseFloat(p.precio_venta).toFixed(2)}</option>)}
+                  style={{ flex: 2, minWidth: 160, padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
+                  <option value="">Producto</option>
+                  {productos.map(p => {
+                    const as = p.almacenes_stock || [];
+                    const totalStock = as.reduce((sum, a) => sum + a.stock_cajas + a.stock_unitario, 0);
+                    return <option key={p.id} value={p.id}>{p.nombre} (Stock: {totalStock})</option>;
+                  })}
                 </select>
-                <input type="number" min="1" value={item.cantidad} onChange={(e) => updateItem(i, 'cantidad', parseInt(e.target.value) || 1)}
-                  style={{ flex: 1, padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+                <select value={item.almacen_id} onChange={(e) => updateItem(i, 'almacen_id', e.target.value)} required
+                  style={{ flex: 1, minWidth: 120, padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
+                  <option value="">Almacen</option>
+                  {almacenes.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
+                </select>
+                <input type="number" min="0" value={item.cajas} onChange={(e) => updateItem(i, 'cajas', parseInt(e.target.value) || 0)}
+                  placeholder="Cajas"
+                  style={{ width: 70, padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+                <input type="number" min="1" value={item.unitario} onChange={(e) => updateItem(i, 'unitario', parseInt(e.target.value) || 0)}
+                  placeholder="Unidades"
+                  style={{ width: 70, padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
                 <button type="button" onClick={() => removeItem(i)} style={{ padding: '6px 10px', background: '#e53e3e', color: 'white', border: 'none', borderRadius: 6, cursor: 'pointer', fontSize: 12 }}>
                   X
                 </button>
@@ -177,7 +199,7 @@ export default function Ordenes() {
             ))}
           </div>
           <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button type="button" onClick={() => { setShowForm(false); setForm({ cliente_id: '', notas: '', items: [{ producto_id: '', cantidad: 1 }] }); }} style={{ padding: '10px 20px', background: 'var(--bg-secondary, #edf2f7)', color: 'var(--text-primary, #2d3748)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+            <button type="button" onClick={() => { setShowForm(false); setForm({ cliente_id: '', notas: '', items: [{ producto_id: '', almacen_id: '', cajas: 0, unitario: 1 }] }); }} style={{ padding: '10px 20px', background: 'var(--bg-secondary, #edf2f7)', color: 'var(--text-primary, #2d3748)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
               Cancelar
             </button>
             <button type="submit" disabled={saving} style={{ padding: '10px 24px', background: saving ? '#a0aec0' : '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
@@ -209,26 +231,30 @@ export default function Ordenes() {
           </div>
           <h4 style={{ margin: '0 0 8px 0', color: 'var(--text-primary, #1a202c)' }}>Detalle</h4>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 400 }}>
-              <thead>
-                <tr style={{ background: 'var(--bg-secondary, #f7fafc)' }}>
-                  <th style={{ padding: '8px 12px', borderBottom: '1px solid var(--border, #e2e8f0)', textAlign: 'left' }}>Producto</th>
-                  <th style={{ padding: '8px 12px', borderBottom: '1px solid var(--border, #e2e8f0)', textAlign: 'right' }}>Cantidad</th>
-                  <th style={{ padding: '8px 12px', borderBottom: '1px solid var(--border, #e2e8f0)', textAlign: 'right' }}>Precio</th>
-                  <th style={{ padding: '8px 12px', borderBottom: '1px solid var(--border, #e2e8f0)', textAlign: 'right' }}>Subtotal</th>
-                </tr>
-              </thead>
-              <tbody>
-                {selectedOrden.detalle?.map((d, i) => (
-                  <tr key={i}>
-                    <td style={{ padding: '8px 12px', color: 'var(--text-primary, #2d3748)' }}>{d.producto_nombre}</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-primary, #2d3748)' }}>{d.cantidad}</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-primary, #2d3748)' }}>S/ {parseFloat(d.precio_unitario).toFixed(2)}</td>
-                    <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-primary, #2d3748)' }}>S/ {parseFloat(d.subtotal).toFixed(2)}</td>
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13, minWidth: 500 }}>
+                <thead>
+                  <tr style={{ background: 'var(--bg-secondary, #f7fafc)' }}>
+                    <th style={{ padding: '8px 12px', borderBottom: '1px solid var(--border, #e2e8f0)', textAlign: 'left' }}>Producto</th>
+                    <th style={{ padding: '8px 12px', borderBottom: '1px solid var(--border, #e2e8f0)', textAlign: 'center' }}>Cajas</th>
+                    <th style={{ padding: '8px 12px', borderBottom: '1px solid var(--border, #e2e8f0)', textAlign: 'center' }}>Uni</th>
+                    <th style={{ padding: '8px 12px', borderBottom: '1px solid var(--border, #e2e8f0)', textAlign: 'center' }}>Total</th>
+                    <th style={{ padding: '8px 12px', borderBottom: '1px solid var(--border, #e2e8f0)', textAlign: 'right' }}>Precio</th>
+                    <th style={{ padding: '8px 12px', borderBottom: '1px solid var(--border, #e2e8f0)', textAlign: 'right' }}>Subtotal</th>
                   </tr>
-                ))}
-              </tbody>
-            </table>
+                </thead>
+                <tbody>
+                  {selectedOrden.detalle?.map((d, i) => (
+                    <tr key={i}>
+                      <td style={{ padding: '8px 12px', color: 'var(--text-primary, #2d3748)' }}>{d.producto_nombre}</td>
+                      <td style={{ padding: '8px 12px', textAlign: 'center', color: 'var(--text-primary, #2d3748)' }}>{d.cajas || 0}</td>
+                      <td style={{ padding: '8px 12px', textAlign: 'center', color: 'var(--text-primary, #2d3748)' }}>{d.unitario || 0}</td>
+                      <td style={{ padding: '8px 12px', textAlign: 'center', color: 'var(--text-primary, #2d3748)' }}>{d.cantidad}</td>
+                      <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-primary, #2d3748)' }}>S/ {parseFloat(d.precio_unitario).toFixed(2)}</td>
+                      <td style={{ padding: '8px 12px', textAlign: 'right', color: 'var(--text-primary, #2d3748)' }}>S/ {parseFloat(d.subtotal).toFixed(2)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
           </div>
         </div>
       )}

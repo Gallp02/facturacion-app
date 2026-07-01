@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { movimientosStockAPI, productosAPI } from '../services/api';
+import { movimientosStockAPI, productosAPI, almacenesAPI } from '../services/api';
 import { useToast } from '../context/ToastContext';
 import { useAuth } from '../context/AuthContext';
 import SearchBar from '../components/SearchBar';
@@ -15,6 +15,7 @@ export default function MovimientosStock() {
 
   const [movimientos, setMovimientos] = useState([]);
   const [productos, setProductos] = useState([]);
+  const [almacenes, setAlmacenes] = useState([]);
   const [loading, setLoading] = useState(true);
   const loadedRef = useRef(false);
   const [page, setPage] = useState(1);
@@ -24,20 +25,22 @@ export default function MovimientosStock() {
   const [showForm, setShowForm] = useState(false);
   const [saving, setSaving] = useState(false);
 
-  const [form, setForm] = useState({ producto_id: '', tipo: 'entrada', cantidad: 1, referencia: '' });
+  const [form, setForm] = useState({ producto_id: '', tipo: 'entrada', almacen_id: '', cajas: 1, unitario: 0, referencia: '' });
 
   const loadData = useCallback(async (p, s, t) => {
     if (loadedRef.current) setLoading(true);
     try {
       const params = { page: p, limit: 20, search: s };
       if (t) params.tipo = t;
-      const [mRes, pRes] = await Promise.all([
+      const [mRes, pRes, aRes] = await Promise.all([
         movimientosStockAPI.getAll(params),
-        productosAPI.getAll({ limit: 200 })
+        productosAPI.getAll({ limit: 200 }),
+        almacenesAPI.getAll()
       ]);
       setMovimientos(mRes.data.data);
       setTotal(mRes.data.total);
       setProductos(pRes.data.data || pRes.data);
+      setAlmacenes(aRes.data);
     } catch (err) {
       addToast('Error al cargar movimientos', 'error');
     } finally {
@@ -56,16 +59,26 @@ export default function MovimientosStock() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!form.producto_id || !form.tipo || !form.cantidad) {
-      addToast('Complete todos los campos requeridos', 'error');
+    if (!form.producto_id || !form.tipo || !form.almacen_id) {
+      addToast('Complete producto, tipo y almacen', 'error');
+      return;
+    }
+    if ((!form.cajas || form.cajas === 0) && (!form.unitario || form.unitario === 0)) {
+      addToast('Ingrese al menos 1 caja o 1 unidad', 'error');
       return;
     }
     setSaving(true);
     try {
-      await movimientosStockAPI.create(form);
+      const payload = {
+        ...form,
+        cantidad: (parseInt(form.cajas) || 0) + (parseInt(form.unitario) || 0),
+        cajas: parseInt(form.cajas) || 0,
+        unitario: parseInt(form.unitario) || 0
+      };
+      await movimientosStockAPI.create(payload);
       addToast('Movimiento registrado correctamente', 'success');
       setShowForm(false);
-      setForm({ producto_id: '', tipo: 'entrada', cantidad: 1, referencia: '' });
+      setForm({ producto_id: '', tipo: 'entrada', almacen_id: '', cajas: 1, unitario: 0, referencia: '' });
       loadData(page, search, tipoFilter);
     } catch (err) {
       addToast(err.response?.data?.error || 'Error al registrar movimiento', 'error');
@@ -102,7 +115,7 @@ export default function MovimientosStock() {
               ⬇ CSV
             </button>
             {canManage && (
-              <button onClick={() => { setShowForm(true); setForm({ producto_id: '', tipo: 'entrada', cantidad: 1, referencia: '' }); }}
+              <button onClick={() => { setShowForm(true); setForm({ producto_id: '', tipo: 'entrada', almacen_id: '', cajas: 0, unitario: 1, referencia: '' }); }}
                 style={{ padding: '10px 20px', background: '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
                 + Nuevo Movimiento
               </button>
@@ -111,7 +124,7 @@ export default function MovimientosStock() {
         </div>
       </div>
 
-      <Modal open={showForm} onClose={() => { setShowForm(false); setForm({ producto_id: '', tipo: 'entrada', cantidad: 1, referencia: '' }); }} title="Nuevo Movimiento" maxWidth={500}>
+      <Modal open={showForm} onClose={() => { setShowForm(false); setForm({ producto_id: '', tipo: 'entrada', almacen_id: '', cajas: 1, unitario: 0, referencia: '' }); }} title="Nuevo Movimiento" maxWidth={550}>
         <form onSubmit={handleSubmit}>
           <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12 }}>
             <div>
@@ -120,6 +133,14 @@ export default function MovimientosStock() {
                 style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
                 <option value="">Seleccionar producto</option>
                 {productos.map(p => <option key={p.id} value={p.id}>{p.nombre} (Stock: {p.stock})</option>)}
+              </select>
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Almacen *</label>
+              <select value={form.almacen_id} onChange={(e) => setForm({ ...form, almacen_id: e.target.value })} required
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }}>
+                <option value="">Seleccionar</option>
+                {almacenes.map(a => <option key={a.id} value={a.id}>{a.nombre}</option>)}
               </select>
             </div>
             <div>
@@ -132,8 +153,13 @@ export default function MovimientosStock() {
               </select>
             </div>
             <div>
-              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Cantidad *</label>
-              <input type="number" min="1" value={form.cantidad} onChange={(e) => setForm({ ...form, cantidad: parseInt(e.target.value) || 1 })} required
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Cajas</label>
+              <input type="number" min="0" value={form.cajas} onChange={(e) => setForm({ ...form, cajas: parseInt(e.target.value) || 0 })}
+                style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
+            </div>
+            <div>
+              <label style={{ display: 'block', marginBottom: 6, fontSize: 14, fontWeight: 600, color: 'var(--text-primary, #1a202c)' }}>Unidades</label>
+              <input type="number" min="0" value={form.unitario} onChange={(e) => setForm({ ...form, unitario: parseInt(e.target.value) || 0 })}
                 style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
             </div>
             <div>
@@ -142,13 +168,8 @@ export default function MovimientosStock() {
                 style={{ width: '100%', padding: 8, border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 13, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #2d3748)' }} />
             </div>
           </div>
-          <div style={{ marginTop: 12, marginBottom: 12, fontSize: 13, color: 'var(--text-secondary, #718096)' }}>
-            {form.tipo === 'entrada' && 'Aumenta el stock del producto'}
-            {form.tipo === 'salida' && 'Reduce el stock del producto (requiere stock suficiente)'}
-            {form.tipo === 'ajuste' && 'Valor positivo = entrada, valor negativo = salida'}
-          </div>
-          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end' }}>
-            <button type="button" onClick={() => { setShowForm(false); setForm({ producto_id: '', tipo: 'entrada', cantidad: 1, referencia: '' }); }} style={{ padding: '10px 20px', background: 'var(--bg-secondary, #edf2f7)', color: 'var(--text-primary, #2d3748)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
+          <div style={{ display: 'flex', gap: 10, justifyContent: 'flex-end', marginTop: 16 }}>
+            <button type="button" onClick={() => { setShowForm(false); setForm({ producto_id: '', tipo: 'entrada', almacen_id: '', cajas: 1, unitario: 0, referencia: '' }); }} style={{ padding: '10px 20px', background: 'var(--bg-secondary, #edf2f7)', color: 'var(--text-primary, #2d3748)', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 13, fontWeight: 600 }}>
               Cancelar
             </button>
             <button type="submit" disabled={saving} style={{ padding: '10px 24px', background: saving ? '#a0aec0' : '#38a169', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontWeight: 600, fontSize: 13 }}>
@@ -161,17 +182,18 @@ export default function MovimientosStock() {
       {loading ? (loadedRef.current ? <TableSkeleton rows={6} cols={7} /> : <div style={{ height: 400 }} />) : (
         <div style={{ background: 'var(--card-bg, white)', borderRadius: 12, boxShadow: '0 1px 3px rgba(0,0,0,0.08)', overflow: 'hidden' }}>
           <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 800 }}>
+            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 14, minWidth: 900 }}>
               <thead>
                 <tr style={{ background: 'var(--bg-secondary, #f7fafc)', textAlign: 'left' }}>
-                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Tipo</th>
-                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Producto</th>
-                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Cantidad</th>
-                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Stock Anterior</th>
-                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Stock Nuevo</th>
-                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Referencia</th>
-                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Usuario</th>
-                  <th style={{ padding: '12px 16px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Fecha</th>
+                  <th style={{ padding: '12px 14px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Tipo</th>
+                  <th style={{ padding: '12px 14px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Producto</th>
+                  <th style={{ padding: '12px 14px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Almacen</th>
+                  <th style={{ padding: '12px 14px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Cajas</th>
+                  <th style={{ padding: '12px 14px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Uni</th>
+                  <th style={{ padding: '12px 14px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Total</th>
+                  <th style={{ padding: '12px 14px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Ref.</th>
+                  <th style={{ padding: '12px 14px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Usuario</th>
+                  <th style={{ padding: '12px 14px', borderBottom: '2px solid var(--border, #e2e8f0)' }}>Fecha</th>
                 </tr>
               </thead>
               <tbody>
@@ -179,25 +201,26 @@ export default function MovimientosStock() {
                   const s = tipoStyle(m.tipo);
                   return (
                     <tr key={m.id} style={{ borderBottom: '1px solid var(--border, #e2e8f0)' }}>
-                      <td style={{ padding: '10px 16px' }}>
+                      <td style={{ padding: '10px 14px' }}>
                         <span style={{ padding: '3px 8px', borderRadius: 12, fontSize: 12, fontWeight: 600, background: s.bg, color: s.color }}>
                           {m.tipo}
                         </span>
                       </td>
-                      <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{m.producto_nombre}</td>
-                      <td style={{ padding: '10px 16px', fontWeight: 700, color: m.tipo === 'entrada' ? '#38a169' : m.tipo === 'salida' ? '#e53e3e' : '#d69e2e' }}>
+                      <td style={{ padding: '10px 14px', color: 'var(--text-primary, #2d3748)' }}>{m.producto_nombre}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text-primary, #2d3748)' }}>{m.almacen_nombre || '-'}</td>
+                      <td style={{ padding: '10px 14px', textAlign: 'center', color: 'var(--text-primary, #2d3748)' }}>{m.cajas || 0}</td>
+                      <td style={{ padding: '10px 14px', textAlign: 'center', color: 'var(--text-primary, #2d3748)' }}>{m.unitario || 0}</td>
+                      <td style={{ padding: '10px 14px', fontWeight: 700, color: m.tipo === 'entrada' ? '#38a169' : m.tipo === 'salida' ? '#e53e3e' : '#d69e2e' }}>
                         {m.tipo === 'entrada' ? '+' : m.tipo === 'salida' ? '-' : ''}{m.cantidad}
                       </td>
-                      <td style={{ padding: '10px 16px', color: 'var(--text-primary, #2d3748)' }}>{m.stock_anterior}</td>
-                      <td style={{ padding: '10px 16px', fontWeight: 600, color: 'var(--text-primary, #2d3748)' }}>{m.stock_nuevo}</td>
-                      <td style={{ padding: '10px 16px', fontSize: 13, color: 'var(--text-secondary, #64748b)' }}>{m.referencia || '-'}</td>
-                      <td style={{ padding: '10px 16px', fontSize: 13, color: 'var(--text-primary, #2d3748)' }}>{m.usuario_nombre}</td>
-                      <td style={{ padding: '10px 16px', fontSize: 12, color: 'var(--text-primary, #2d3748)' }}>{new Date(m.created_at).toLocaleString()}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text-secondary, #64748b)' }}>{m.referencia || '-'}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 13, color: 'var(--text-primary, #2d3748)' }}>{m.usuario_nombre}</td>
+                      <td style={{ padding: '10px 14px', fontSize: 12, color: 'var(--text-primary, #2d3748)' }}>{new Date(m.created_at).toLocaleString()}</td>
                     </tr>
                   );
                 })}
                 {movimientos.length === 0 && !loading && (
-                  <tr><td colSpan={8} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #a0aec0)' }}>No hay movimientos registrados</td></tr>
+                  <tr><td colSpan={9} style={{ padding: 40, textAlign: 'center', color: 'var(--text-secondary, #a0aec0)' }}>No hay movimientos registrados</td></tr>
                 )}
               </tbody>
             </table>

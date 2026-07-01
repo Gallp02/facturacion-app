@@ -8,23 +8,74 @@ router.use(authenticate);
 
 router.get('/', async (req, res) => {
   try {
-    const { page = 1, limit = 50, search = '' } = req.query;
+    const { page = 1, limit = 50, search = '', categoria_id, igv, stock_min, stock_max, precio_min, precio_max } = req.query;
     const offset = (parseInt(page) - 1) * parseInt(limit);
-    const searchWhere = search ? 'AND (p.nombre LIKE ? OR p.codigo LIKE ?)' : '';
-    const params = search ? [`%${search}%`, `%${search}%`] : [];
+    const wheres = ['p.activo = 1'];
+    const params = [];
+
+    if (search) {
+      wheres.push('(p.nombre LIKE ? OR p.codigo LIKE ? OR p.descripcion LIKE ? OR c.nombre LIKE ?)');
+      params.push(`%${search}%`, `%${search}%`, `%${search}%`, `%${search}%`);
+    }
+    if (categoria_id) {
+      wheres.push('p.categoria_id = ?');
+      params.push(categoria_id);
+    }
+    if (igv !== undefined && igv !== '') {
+      wheres.push('p.igv = ?');
+      params.push(igv === '1' || igv === 'true' ? 1 : 0);
+    }
+    if (stock_min !== undefined && stock_min !== '') {
+      wheres.push('p.stock >= ?');
+      params.push(parseInt(stock_min));
+    }
+    if (stock_max !== undefined && stock_max !== '') {
+      wheres.push('p.stock <= ?');
+      params.push(parseInt(stock_max));
+    }
+    if (precio_min !== undefined && precio_min !== '') {
+      wheres.push('p.precio_venta >= ?');
+      params.push(parseFloat(precio_min));
+    }
+    if (precio_max !== undefined && precio_max !== '') {
+      wheres.push('p.precio_venta <= ?');
+      params.push(parseFloat(precio_max));
+    }
+
+    const whereSQL = wheres.length ? 'WHERE ' + wheres.join(' AND ') : '';
 
     const [count] = await pool.query(
-      `SELECT COUNT(*) as total FROM productos p WHERE p.activo = 1 ${searchWhere}`,
+      `SELECT COUNT(*) as total FROM productos p LEFT JOIN categorias c ON p.categoria_id = c.id ${whereSQL}`,
       params
     );
     const [rows] = await pool.query(
       `SELECT p.*, c.nombre as categoria_nombre 
        FROM productos p 
        LEFT JOIN categorias c ON p.categoria_id = c.id 
-       WHERE p.activo = 1 ${searchWhere}
+       ${whereSQL}
        ORDER BY p.nombre LIMIT ? OFFSET ?`,
       [...params, parseInt(limit), offset]
     );
+
+    // Fetch warehouse stock for all returned products
+    if (rows.length > 0) {
+      const ids = rows.map(r => r.id);
+      const [pa] = await pool.query(
+        `SELECT pa.producto_id, pa.almacen_id, pa.stock_cajas, pa.stock_unitario, a.nombre as almacen_nombre
+         FROM producto_almacen pa
+         JOIN almacenes a ON pa.almacen_id = a.id
+         WHERE pa.producto_id IN (${ids.map(() => '?').join(',')}) AND a.activo = 1`,
+        ids
+      );
+      const stockMap = {};
+      for (const s of pa) {
+        if (!stockMap[s.producto_id]) stockMap[s.producto_id] = [];
+        stockMap[s.producto_id].push(s);
+      }
+      for (const r of rows) {
+        r.almacenes_stock = stockMap[r.id] || [];
+      }
+    }
     res.json({ data: rows, total: count[0].total, page: parseInt(page), limit: parseInt(limit) });
   } catch (error) {
     res.status(500).json({ error: 'Error al listar productos' });
@@ -107,6 +158,22 @@ router.get('/stock/bajo', async (req, res) => {
        FROM productos p LEFT JOIN categorias c ON p.categoria_id = c.id 
        WHERE p.activo = 1 AND p.stock <= p.stock_minimo ORDER BY p.stock ASC`
     );
+    // Attach warehouse stock
+    if (rows.length > 0) {
+      const ids = rows.map(r => r.id);
+      const [pa] = await pool.query(
+        `SELECT pa.producto_id, pa.almacen_id, pa.stock_cajas, pa.stock_unitario, a.nombre as almacen_nombre
+         FROM producto_almacen pa JOIN almacenes a ON pa.almacen_id = a.id
+         WHERE pa.producto_id IN (${ids.map(() => '?').join(',')}) AND a.activo = 1`,
+        ids
+      );
+      const map = {};
+      for (const s of pa) {
+        if (!map[s.producto_id]) map[s.producto_id] = [];
+        map[s.producto_id].push(s);
+      }
+      for (const r of rows) r.almacenes_stock = map[r.id] || [];
+    }
     res.json(rows);
   } catch (error) {
     res.status(500).json({ error: 'Error al consultar stock bajo' });

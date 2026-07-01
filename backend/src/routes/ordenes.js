@@ -67,13 +67,28 @@ router.post('/', auditMiddleware('crear', 'ordenes_compra'), async (req, res) =>
     let subtotal = 0;
     for (const item of items) {
       const [productos] = await connection.query(
-        'SELECT id, precio_venta, stock, igv FROM productos WHERE id = ? AND activo = 1 FOR UPDATE',
+        'SELECT id, precio_venta, igv, nombre FROM productos WHERE id = ? AND activo = 1 FOR UPDATE',
         [item.producto_id]
       );
       if (productos.length === 0) { await connection.rollback(); return res.status(400).json({ error: `Producto ID ${item.producto_id} no encontrado` }); }
-      if (productos[0].stock < item.cantidad) { await connection.rollback(); return res.status(400).json({ error: `Stock insuficiente para ${productos[0].nombre || 'producto ID ' + item.producto_id}` }); }
+      const nom = productos[0].nombre || 'ID ' + item.producto_id;
+      const almacenId = item.almacen_id || 1;
+      const cajas = item.cajas || 0;
+      const unitario = item.unitario || 0;
+      const cantidad = cajas + unitario;
+
+      // Check stock in producto_almacen
+      const [pa] = await connection.query(
+        'SELECT stock_cajas, stock_unitario FROM producto_almacen WHERE producto_id = ? AND almacen_id = ? FOR UPDATE',
+        [item.producto_id, almacenId]
+      );
+      if (pa.length === 0) { await connection.rollback(); return res.status(400).json({ error: `Producto ${nom} sin stock en almacen seleccionado` }); }
+      if (pa[0].stock_cajas < cajas) { await connection.rollback(); return res.status(400).json({ error: `Stock insuficiente de cajas para ${nom}` }); }
+      if (pa[0].stock_unitario < unitario) { await connection.rollback(); return res.status(400).json({ error: `Stock insuficiente de unidades para ${nom}` }); }
+
       item.precio = parseFloat(productos[0].precio_venta);
-      item.subtotal = item.precio * item.cantidad;
+      item.subtotal = item.precio * cantidad;
+      item.cantidad_total = cantidad;
       subtotal += item.subtotal;
     }
     const igvPorcentaje = 0.18;
@@ -89,16 +104,31 @@ router.post('/', auditMiddleware('crear', 'ordenes_compra'), async (req, res) =>
     const ordenId = ordenResult.insertId;
 
     for (const item of items) {
+      const almacenId = item.almacen_id || 1;
+      const cajas = item.cajas || 0;
+      const unitario = item.unitario || 0;
+      const cantidad = item.cantidad_total;
+
       await connection.query(
-        'INSERT INTO detalle_orden (orden_id, producto_id, cantidad, precio_unitario, subtotal) VALUES (?, ?, ?, ?, ?)',
-        [ordenId, item.producto_id, item.cantidad, item.precio, item.subtotal]
+        'INSERT INTO detalle_orden (orden_id, producto_id, cantidad, precio_unitario, subtotal, almacen_id, cajas, unitario) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        [ordenId, item.producto_id, cantidad, item.precio, item.subtotal, almacenId, cajas, unitario]
       );
-      const [prod] = await connection.query('SELECT stock FROM productos WHERE id = ? FOR UPDATE', [item.producto_id]);
-      const stockNuevo = prod[0].stock - item.cantidad;
-      await connection.query('UPDATE productos SET stock = ? WHERE id = ?', [stockNuevo, item.producto_id]);
+
+      // Deduct from producto_almacen
       await connection.query(
-        'INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, referencia, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-        [item.producto_id, 'salida', item.cantidad, prod[0].stock, stockNuevo, `Orden: ${codigo}`, usuarioId]
+        'UPDATE producto_almacen SET stock_cajas = stock_cajas - ?, stock_unitario = stock_unitario - ? WHERE producto_id = ? AND almacen_id = ?',
+        [cajas, unitario, item.producto_id, almacenId]
+      );
+
+      // Also update total stock in productos table for backward compat
+      await connection.query(
+        'UPDATE productos SET stock = stock - ? WHERE id = ?',
+        [cantidad, item.producto_id]
+      );
+
+      await connection.query(
+        'INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, referencia, usuario_id, almacen_id, cajas, unitario) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+        [item.producto_id, 'salida', cantidad, 0, 0, `Orden: ${codigo}`, usuarioId, almacenId, cajas, unitario]
       );
     }
     await connection.commit();
@@ -128,15 +158,24 @@ router.put('/:id/estado', authorize('super_admin', 'admin'), async (req, res) =>
 
     if (nuevoEstado === 'anulada' && estadoAnterior !== 'anulada') {
       const [detalle] = await connection.query(
-        'SELECT producto_id, cantidad FROM detalle_orden WHERE orden_id = ?', [req.params.id]
+        'SELECT producto_id, cantidad, almacen_id, cajas, unitario FROM detalle_orden WHERE orden_id = ?', [req.params.id]
       );
       for (const d of detalle) {
+        const almacenId = d.almacen_id || 1;
+        const cajas = d.cajas || 0;
+        const unitario = d.unitario || 0;
+        const cantidad = d.cantidad;
+
+        await connection.query(
+          'UPDATE producto_almacen SET stock_cajas = stock_cajas + ?, stock_unitario = stock_unitario + ? WHERE producto_id = ? AND almacen_id = ?',
+          [cajas, unitario, d.producto_id, almacenId]
+        );
         const [prod] = await connection.query('SELECT stock FROM productos WHERE id = ? FOR UPDATE', [d.producto_id]);
-        const stockNuevo = prod[0].stock + d.cantidad;
+        const stockNuevo = prod[0].stock + cantidad;
         await connection.query('UPDATE productos SET stock = ? WHERE id = ?', [stockNuevo, d.producto_id]);
         await connection.query(
-          'INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, referencia, usuario_id) VALUES (?, ?, ?, ?, ?, ?, ?)',
-          [d.producto_id, 'entrada', d.cantidad, prod[0].stock, stockNuevo, `Anulacion Orden: ${req.params.id}`, req.usuario.id]
+          'INSERT INTO movimientos_stock (producto_id, tipo, cantidad, stock_anterior, stock_nuevo, referencia, usuario_id, almacen_id, cajas, unitario) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)',
+          [d.producto_id, 'entrada', cantidad, prod[0].stock, stockNuevo, `Anulacion Orden: ${req.params.id}`, req.usuario.id, almacenId, cajas, unitario]
         );
       }
     }
