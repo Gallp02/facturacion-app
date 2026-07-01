@@ -28,6 +28,7 @@ export default function Morosos() {
   const [detalle, setDetalle] = useState(null);
   const [showDetalle, setShowDetalle] = useState(false);
   const [pagarLoading, setPagarLoading] = useState(null);
+  const [confirmPago, setConfirmPago] = useState(null);
 
   const loadData = useCallback(async (p, s) => {
     if (loadedRef.current) setLoading(true);
@@ -120,8 +121,9 @@ export default function Morosos() {
     }
   };
 
-  const pagarCuota = async (prestamoId, cuotaId, numeroCuota) => {
-    if (!confirm(`Marcar cuota #${numeroCuota} como pagada?`)) return;
+  const confirmarPago = async () => {
+    if (!confirmPago) return;
+    const { prestamoId, cuotaId } = confirmPago;
     setPagarLoading(cuotaId);
     try {
       await prestamosAPI.pagarCuota(prestamoId, cuotaId, new Date().toISOString().split('T')[0]);
@@ -129,6 +131,7 @@ export default function Morosos() {
       const res = await prestamosAPI.getById(prestamoId);
       setDetalle(res.data);
       loadData(page, search);
+      setConfirmPago(null);
     } catch (_) {
       addToast('Error al pagar cuota', 'error');
     } finally {
@@ -364,7 +367,7 @@ export default function Morosos() {
                     <td style={{ padding: '8px 12px', fontSize: 12 }}>{c.fecha_pago ? new Date(c.fecha_pago).toLocaleDateString() : '-'}</td>
                     <td style={{ padding: '8px 12px' }}>
                       {c.estado === 'pendiente' ? (
-                        <button onClick={() => pagarCuota(detalle.id, c.id, c.numero)} disabled={pagarLoading === c.id} style={{ padding: '4px 10px', background: pagarLoading === c.id ? '#90cdf4' : '#38a169', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}>{pagarLoading === c.id ? '...' : 'Pagar'}</button>
+                        <button onClick={() => setConfirmPago({ prestamoId: detalle.id, cuotaId: c.id, numero: c.numero, monto: c.monto })} disabled={pagarLoading === c.id} style={{ padding: '4px 10px', background: pagarLoading === c.id ? '#90cdf4' : '#38a169', color: 'white', border: 'none', borderRadius: 4, cursor: 'pointer', fontSize: 11 }}>{pagarLoading === c.id ? '...' : 'Pagar'}</button>
                       ) : <span style={{ color: '#38a169', fontWeight: 600, fontSize: 12 }}>Pagado</span>}
                     </td>
                   </tr>
@@ -374,6 +377,25 @@ export default function Morosos() {
           </table>
         </Modal>
       )}
+
+      <Modal
+        open={!!confirmPago}
+        onClose={() => setConfirmPago(null)}
+        title="Confirmar Pago"
+        onConfirm={confirmarPago}
+        confirmText={pagarLoading === confirmPago?.cuotaId ? 'Pagando...' : 'Si, Pagar'}
+        confirmColor="#38a169"
+        loading={pagarLoading === confirmPago?.cuotaId}
+      >
+        {confirmPago && (
+          <div>
+            <p style={{ margin: '0 0 12px' }}>Confirmas que la cuota <strong>#{confirmPago.numero}</strong> fue pagada?</p>
+            <p style={{ margin: 0, fontSize: 13, color: '#718096' }}>
+              Monto: <strong style={{ color: '#2d3748' }}>S/ {confirmPago.monto.toFixed(2)}</strong>
+            </p>
+          </div>
+        )}
+      </Modal>
     </div>
   );
 }
