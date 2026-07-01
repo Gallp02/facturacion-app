@@ -30,7 +30,7 @@ function generateFacturaPDF(factura, items) {
 
   // ===================== LOGO =====================
   try {
-    doc.image(path.join(__dirname, '../../../frontend/public/logo.png'), L, 30, { width: 85, height: 85 });
+    doc.image(path.join(__dirname, '../../../frontend/public/logo.png'), L, 20, { width: 55, height: 55 });
   } catch (e) { }
 
   // ===================== TOP RIGHT HEADER (using sample x, adjusted y) =====================
