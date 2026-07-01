@@ -262,7 +262,7 @@ export default function Morosos() {
             <div><strong>Documento:</strong> {detalle.cliente_doc}</div>
             <div><strong>Monto Total:</strong> S/ {parseFloat(detalle.monto_total).toFixed(2)}</div>
             <div><strong>N° Origen:</strong> {detalle.numero_origen}</div>
-            <div><strong>N° Cuotas:</strong> {detalle.cuotas}</div>
+            <div><strong>N° Cuotas:</strong> {detalle.cuotas.length}</div>
             <div><strong>Monto por Cuota:</strong> S/ {parseFloat(detalle.monto_cuota).toFixed(2)}</div>
             <div><strong>Inicio:</strong> {new Date(detalle.fecha_inicio).toLocaleDateString()}</div>
             <div><strong>Fin:</strong> {new Date(detalle.fecha_fin).toLocaleDateString()}</div>
