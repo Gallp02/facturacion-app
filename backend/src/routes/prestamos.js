@@ -87,32 +87,46 @@ router.get('/:id', async (req, res) => {
 
 router.post('/', auditMiddleware('crear', 'prestamos'), async (req, res) => {
   try {
-    const { cliente_id, monto_total, numero_origen, cuotas, fecha_inicio } = req.body;
+    const { cliente_id, monto_total, numero_origen, cuotas, fecha_inicio, cuotas_data } = req.body;
     if (!cliente_id || !monto_total || !numero_origen || !cuotas || !fecha_inicio) {
       return res.status(400).json({ error: 'Todos los campos son requeridos' });
     }
     const montoCuota = Math.round((parseFloat(monto_total) / parseInt(cuotas)) * 100) / 100;
-    const diff = Math.round((parseFloat(monto_total) - montoCuota * parseInt(cuotas)) * 100) / 100;
 
-    const fechaFin = new Date(fecha_inicio);
-    fechaFin.setMonth(fechaFin.getMonth() + parseInt(cuotas) - 1);
-    const fechaFinStr = fechaFin.toISOString().split('T')[0];
+    let fechaFin;
+    if (cuotas_data && cuotas_data.length > 0) {
+      fechaFin = cuotas_data[cuotas_data.length - 1].fecha_vencimiento;
+    } else {
+      const f = new Date(fecha_inicio);
+      f.setMonth(f.getMonth() + parseInt(cuotas) - 1);
+      fechaFin = f.toISOString().split('T')[0];
+    }
 
     const [result] = await pool.query(
       'INSERT INTO prestamos (cliente_id, monto_total, numero_origen, cuotas, monto_cuota, fecha_inicio, fecha_fin) VALUES (?, ?, ?, ?, ?, ?, ?)',
-      [cliente_id, monto_total, numero_origen, parseInt(cuotas), montoCuota, fecha_inicio, fechaFinStr]
+      [cliente_id, monto_total, numero_origen, parseInt(cuotas), montoCuota, fecha_inicio, fechaFin]
     );
     const prestamoId = result.insertId;
 
-    for (let i = 1; i <= parseInt(cuotas); i++) {
-      const fecha = new Date(fecha_inicio);
-      fecha.setMonth(fecha.getMonth() + i - 1);
-      const fec = fecha.toISOString().split('T')[0];
-      const monto = i === parseInt(cuotas) ? Math.round((montoCuota + diff) * 100) / 100 : montoCuota;
-      await pool.query(
-        'INSERT INTO cuotas_prestamo (prestamo_id, numero, fecha_vencimiento, monto) VALUES (?, ?, ?, ?)',
-        [prestamoId, i, fec, monto]
-      );
+    if (cuotas_data && cuotas_data.length > 0) {
+      for (let i = 0; i < cuotas_data.length; i++) {
+        await pool.query(
+          'INSERT INTO cuotas_prestamo (prestamo_id, numero, fecha_vencimiento, monto) VALUES (?, ?, ?, ?)',
+          [prestamoId, i + 1, cuotas_data[i].fecha_vencimiento, cuotas_data[i].monto]
+        );
+      }
+    } else {
+      const diff = Math.round((parseFloat(monto_total) - montoCuota * parseInt(cuotas)) * 100) / 100;
+      for (let i = 1; i <= parseInt(cuotas); i++) {
+        const fecha = new Date(fecha_inicio);
+        fecha.setMonth(fecha.getMonth() + i - 1);
+        const fec = fecha.toISOString().split('T')[0];
+        const monto = i === parseInt(cuotas) ? Math.round((montoCuota + diff) * 100) / 100 : montoCuota;
+        await pool.query(
+          'INSERT INTO cuotas_prestamo (prestamo_id, numero, fecha_vencimiento, monto) VALUES (?, ?, ?, ?)',
+          [prestamoId, i, fec, monto]
+        );
+      }
     }
 
     res.status(201).json({ id: prestamoId, mensaje: 'Prestamo creado' });

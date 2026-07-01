@@ -22,6 +22,7 @@ export default function Morosos() {
   const [form, setForm] = useState({
     cliente_id: '', monto_total: '', numero_origen: '', cuotas: '', fecha_inicio: ''
   });
+  const [cuotasData, setCuotasData] = useState([]);
   const [clientes, setClientes] = useState([]);
 
   const [detalle, setDetalle] = useState(null);
@@ -51,8 +52,29 @@ export default function Morosos() {
     return () => clearTimeout(timer);
   }, [search]);
 
+  useEffect(() => {
+    const c = parseInt(form.cuotas);
+    const m = parseFloat(form.monto_total);
+    if (c > 0 && m > 0 && form.fecha_inicio) {
+      const montoCuota = Math.round((m / c) * 100) / 100;
+      const diff = Math.round((m - montoCuota * c) * 100) / 100;
+      const data = [];
+      for (let i = 0; i < c; i++) {
+        const f = new Date(form.fecha_inicio);
+        f.setMonth(f.getMonth() + i);
+        const fec = f.toISOString().split('T')[0];
+        const monto = i === c - 1 ? Math.round((montoCuota + diff) * 100) / 100 : montoCuota;
+        data.push({ fecha_vencimiento: fec, monto });
+      }
+      setCuotasData(data);
+    } else {
+      setCuotasData([]);
+    }
+  }, [form.cuotas, form.monto_total, form.fecha_inicio]);
+
   const openCreate = async () => {
     setForm({ cliente_id: '', monto_total: '', numero_origen: '', cuotas: '', fecha_inicio: '' });
+    setCuotasData([]);
     try {
       const res = await clientesAPI.getAll({ limit: 200 });
       setClientes(res.data.data);
@@ -76,6 +98,7 @@ export default function Morosos() {
         numero_origen: form.numero_origen,
         cuotas: form.cuotas,
         fecha_inicio: form.fecha_inicio,
+        cuotas_data: cuotasData,
       });
       closeForm();
       loadData(page, search);
@@ -248,6 +271,51 @@ export default function Morosos() {
                 </div>
               </div>
             </div>
+
+            {cuotasData.length > 0 && (
+              <div>
+                <label style={{ display: 'block', fontSize: 12, fontWeight: 600, color: 'var(--text-primary, #4a5568)', marginBottom: 6 }}>Fechas de las Letras</label>
+                <div style={{ maxHeight: 200, overflowY: 'auto', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8 }}>
+                  <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
+                    <thead>
+                      <tr style={{ background: 'var(--bg-secondary, #f7fafc)', position: 'sticky', top: 0 }}>
+                        <th style={{ padding: '6px 10px', borderBottom: '1px solid var(--border, #e2e8f0)', textAlign: 'left', width: 40 }}>#</th>
+                        <th style={{ padding: '6px 10px', borderBottom: '1px solid var(--border, #e2e8f0)', textAlign: 'left' }}>Fecha Vencimiento</th>
+                        <th style={{ padding: '6px 10px', borderBottom: '1px solid var(--border, #e2e8f0)', textAlign: 'left' }}>Monto S/</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      {cuotasData.map((c, i) => (
+                        <tr key={i} style={{ borderBottom: '1px solid var(--border, #e2e8f0)' }}>
+                          <td style={{ padding: '4px 10px', fontWeight: 600, color: 'var(--text-primary, #4a5568)' }}>{i + 1}</td>
+                          <td style={{ padding: '4px 10px' }}>
+                            <input type="date" value={c.fecha_vencimiento}
+                              onChange={(e) => {
+                                const next = [...cuotasData];
+                                next[i] = { ...next[i], fecha_vencimiento: e.target.value };
+                                setCuotasData(next);
+                              }}
+                              style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 12, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #1a202c)' }}
+                            />
+                          </td>
+                          <td style={{ padding: '4px 10px' }}>
+                            <input type="number" step="0.01" min="0" value={c.monto}
+                              onChange={(e) => {
+                                const next = [...cuotasData];
+                                next[i] = { ...next[i], monto: parseFloat(e.target.value) || 0 };
+                                setCuotasData(next);
+                              }}
+                              style={{ width: '100%', padding: '6px 8px', border: '1px solid var(--border, #e2e8f0)', borderRadius: 6, fontSize: 12, boxSizing: 'border-box', background: 'var(--card-bg, white)', color: 'var(--text-primary, #1a202c)' }}
+                            />
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginTop: 20 }}>
               <button type="button" onClick={closeForm} style={{ padding: '10px 20px', background: 'transparent', border: '1px solid var(--border, #e2e8f0)', borderRadius: 8, cursor: 'pointer', fontSize: 14, color: 'var(--text-primary, #4a5568)' }}>Cancelar</button>
               <button type="submit" disabled={saving} style={{ padding: '10px 20px', background: saving ? '#90cdf4' : '#3182ce', color: 'white', border: 'none', borderRadius: 8, cursor: 'pointer', fontSize: 14, fontWeight: 600 }}>{saving ? 'Guardando...' : 'Crear Prestamo'}</button>
